@@ -1,4 +1,4 @@
-package com.example.module5.diary
+package com.example.module5_t1to3.diary
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel

@@ -1,4 +1,4 @@
-package com.example.module5.diary
+package com.example.module5_t1to3.diary
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent

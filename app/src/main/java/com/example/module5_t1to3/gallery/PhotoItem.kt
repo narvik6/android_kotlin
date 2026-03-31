@@ -1,4 +1,4 @@
-package com.example.module5.gallery
+package com.example.module5_t1to3.gallery
 
 import java.io.File
 

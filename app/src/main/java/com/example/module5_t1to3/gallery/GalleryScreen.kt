@@ -1,4 +1,4 @@
-package com.example.module5.gallery
+package com.example.module5_t1to3.gallery
 
 import android.Manifest
 import android.content.pm.PackageManager

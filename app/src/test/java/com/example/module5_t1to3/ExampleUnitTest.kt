@@ -1,4 +1,4 @@
-package com.example.module5
+package com.example.module5_t1to3
 
 import org.junit.Test
 
