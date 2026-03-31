@@ -19,9 +19,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Корневой Composable — выбирает экран на основе текущего nav-состояния
-// ──────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun DiaryApp(viewModel: DiaryViewModel = viewModel()) {
@@ -54,9 +51,6 @@ fun DiaryApp(viewModel: DiaryViewModel = viewModel()) {
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Экран 1: Список записей
-// ──────────────────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,7 +83,7 @@ fun DiaryListScreen(
                         entry         = entry,
                         onClick       = { onEntryClick(entry) },
                         onDeleteClick = { onDeleteEntry(entry.fileName)  },
-                        modifier      = Modifier.animateItem()   // плавное добавление/удаление
+                        modifier      = Modifier.animateItem()
                     )
                 }
             }
@@ -107,14 +101,13 @@ private fun DiaryEntryCard(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
-    // Box нужен, чтобы DropdownMenu открывался рядом с карточкой
     Box(modifier = modifier) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .combinedClickable(
                     onClick     = onClick,
-                    onLongClick = { menuExpanded = true }   // долгое нажатие → меню
+                    onLongClick = { menuExpanded = true }
                 )
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -143,7 +136,6 @@ private fun DiaryEntryCard(
             }
         }
 
-        // Контекстное меню по долгому нажатию
         DropdownMenu(
             expanded         = menuExpanded,
             onDismissRequest = { menuExpanded = false }
@@ -180,9 +172,6 @@ private fun EmptyDiaryPlaceholder(modifier: Modifier = Modifier) {
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Экран 2: Редактор записи (новая + редактирование)
-// ──────────────────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -196,7 +185,6 @@ fun DiaryEditorScreen(
     var title by remember { mutableStateOf(initialTitle) }
     var text  by remember { mutableStateOf(initialText) }
 
-    // Аппаратная кнопка «Назад»
     BackHandler(onBack = onBack)
 
     Scaffold(
@@ -243,7 +231,7 @@ fun DiaryEditorScreen(
                 placeholder   = { Text("Напишите что-нибудь…") },
                 modifier      = Modifier
                     .fillMaxWidth()
-                    .weight(1f)     // занимает всё оставшееся место
+                    .weight(1f)
             )
         }
     }

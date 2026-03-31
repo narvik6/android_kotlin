@@ -4,5 +4,5 @@ import java.io.File
 
 data class PhotoItem(
     val file : File,
-    val name : String   // имя файла = ключ для LazyGrid
+    val name : String
 )

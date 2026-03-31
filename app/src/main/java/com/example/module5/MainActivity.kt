@@ -15,7 +15,7 @@ import com.example.module5.diary.DiaryApp
 import com.example.module5.gallery.GalleryScreen
 import com.example.module5.ui.theme.Module5Theme
 
-class MainActivity : ComponentActivity() {        // ← ComponentActivity, не AppCompatActivity
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

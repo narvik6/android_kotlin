@@ -7,9 +7,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Навигационные состояния (вместо NavController — простой sealed class)
-// ──────────────────────────────────────────────────────────────────────────────
 
 sealed class DiaryNavigation {
     object List : DiaryNavigation()
@@ -21,9 +18,6 @@ sealed class DiaryNavigation {
     ) : DiaryNavigation()
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// ViewModel
-// ──────────────────────────────────────────────────────────────────────────────
 
 class DiaryViewModel(application: Application) : AndroidViewModel(application) {
 
