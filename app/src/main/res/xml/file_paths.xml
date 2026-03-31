@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    res/xml/file_paths.xml
+    Разрешаем FileProvider передавать URI камере для папки
+    getExternalFilesDir(DIRECTORY_PICTURES).
+-->
+<paths>
+    <external-files-path
+        name="external_pictures"
+        path="Pictures/" />
+</paths>
