@@ -15,7 +15,6 @@ serialization = "1.7.3"
 navigation = "2.8.3"
 datastore = "1.1.1"
 coil = "2.7.0"
-koin = "4.0.0"
 
 # Сеть
 retrofit = "2.11.0"
@@ -50,9 +49,6 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 # Корутины и сериализация
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
-
-# DI (Dependency Injection)
-koin-androidx-compose = { group = "io.insert-koin", name = "koin-androidx-compose", version.ref = "koin" }
 
 # Retrofit (Для Задачи 1)
 retrofit-core = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }

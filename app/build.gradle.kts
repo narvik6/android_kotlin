@@ -61,9 +61,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
 
-    // Простая DI
-    implementation(libs.koin.androidx.compose)
-
     // Сеть: Retrofit (Задача 1)
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.converter.kotlinx)
