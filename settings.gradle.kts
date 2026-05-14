@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "module6_t1to3"
+rootProject.name = "module6_t1"
 include(":app")

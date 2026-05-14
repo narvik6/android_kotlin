@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.module6_t1to3"
+    namespace = "com.example.module6_t1"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -13,7 +13,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.module6_t1to3"
+        applicationId = "com.example.module6_t1"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.compose.material.icons.extended)
 
     // Архитектура, Навигация и UI
     implementation(libs.androidx.lifecycle.viewmodel.compose)
