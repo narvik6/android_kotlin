@@ -6,51 +6,58 @@
  */
 
 plugins {
+    // Apply the org.jetbrains.kotlin.jvm Plugin to add support for Kotlin.
     alias(libs.plugins.kotlin.jvm)
+    
+    // Apply serialization plugin for JSON support
     alias(libs.plugins.kotlin.serialization)
+    
+    // Apply Ktor plugin
     alias(libs.plugins.ktor)
+
+    // Apply the application plugin to add support for building a CLI application in Java.
     application
 }
 
 repositories {
+    // Use Maven Central for resolving dependencies.
     mavenCentral()
 }
 
 dependencies {
-    // Тестирование
-    testImplementation(libs.kotlin.test)
-    testImplementation(libs.junit.jupiter.engine)
-    testRuntimeOnly(libs.junit.platform.launcher)
-
-    // Ядро и движок сервера (Netty)
+    // Ktor Core & Netty Engine
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)
 
-    // Авторизация (JWT)
-    implementation(libs.ktor.server.auth)
-    implementation(libs.ktor.server.auth.jwt)
-
-    // Сериализация (JSON)
+    // JSON Serialization
     implementation(libs.ktor.server.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
 
-    // Логирование запросов
+    // Authentication (JWT)
+    implementation(libs.ktor.server.auth.jwt)
+
+    // Logging
     implementation(libs.ktor.server.call.logging)
     implementation(libs.logback.classic)
+
+    // Testing
+    testImplementation("org.jetbrains.kotlin:kotlin-test")
+    testImplementation(libs.junit.jupiter.engine)
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 java {
     toolchain {
-        
         languageVersion = JavaLanguageVersion.of(17)
     }
 }
 
 application {
     
-    mainClass = "org.example.App"
+    mainClass = "org.example.App" 
 }
 
 tasks.named<Test>("test") {
+    // Use JUnit Platform for unit tests.
     useJUnitPlatform()
 }
