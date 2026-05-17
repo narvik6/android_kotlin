@@ -6,32 +6,37 @@ import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import org.example.data.remote.dto.LoginRequestDto
+import org.example.data.remote.dto.TokenResponseDto
+import org.example.data.remote.dto.toDomain
+import org.example.data.remote.dto.toDto
 import org.example.di.Injection
-import org.example.domain.models.LoginRequest
-import org.example.domain.models.TokenResponse
 import org.example.security.JwtConfig
 
 fun Application.configureRouting() {
     routing {
         route("/auth") {
             post("/login") {
-                val request = call.receive<LoginRequest>()
-                val isValid = Injection.authUseCase.authenticate(request)
+                // Принимаем DTO и сразу конвертируем в Domain модель
+                val requestDto = call.receive<LoginRequestDto>()
+                val isValid = Injection.authUseCase.authenticate(requestDto.toDomain())
 
                 if (isValid) {
-                    val token = JwtConfig.generateToken(request.username)
-                    call.respond(HttpStatusCode.OK, TokenResponse(token))
+                    val token = JwtConfig.generateToken(requestDto.username)
+                    // Отдаем DTO
+                    call.respond(HttpStatusCode.OK, TokenResponseDto(token))
                 } else {
                     call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Invalid credentials"))
                 }
             }
         }
 
-        // Блок, требующий наличия валидного JWT-токена в заголовке Authorization
         authenticate("auth-jwt") {
             route("/prizes") {
                 get {
-                    call.respond(HttpStatusCode.OK, Injection.prizeRepository.getAllPrizes())
+                    // Достаем Domain модели, маппим в DTO и отдаем
+                    val prizes = Injection.prizeRepository.getAllPrizes().map { it.toDto() }
+                    call.respond(HttpStatusCode.OK, prizes)
                 }
 
                 route("/{year}/{category}") {
@@ -41,7 +46,7 @@ fun Application.configureRouting() {
 
                         val prize = Injection.prizeRepository.getPrize(year, category)
                         if (prize != null) {
-                            call.respond(HttpStatusCode.OK, prize)
+                            call.respond(HttpStatusCode.OK, prize.toDto())
                         } else {
                             call.respond(HttpStatusCode.NotFound, mapOf("error" to "Prize not found"))
                         }
@@ -53,7 +58,7 @@ fun Application.configureRouting() {
 
                         val laureates = Injection.prizeRepository.getLaureates(year, category)
                         if (laureates != null && laureates.isNotEmpty()) {
-                            call.respond(HttpStatusCode.OK, laureates)
+                            call.respond(HttpStatusCode.OK, laureates.map { it.toDto() })
                         } else {
                             call.respond(HttpStatusCode.NotFound, mapOf("error" to "Laureates not found"))
                         }
