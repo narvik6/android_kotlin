@@ -54,7 +54,7 @@ application {
 
 
 tasks.withType<ShadowJar> {
-    mergeServiceFiles() // Необходимо для работы некоторых внутренних механизмов SPI
+    mergeServiceFiles() // Для работы некоторых внутренних механизмов SPI
     transform(AppendingTransformer::class.java) {
         resource = "reference.conf" // Собираем все конфиги Ktor в один
     }

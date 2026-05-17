@@ -1,0 +1,26 @@
+### 1. Авторизация (Получение токена)
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{
+    "username": "emilys",
+    "password": "emilyspass"
+}
+
+###
+
+### 2. Получение всех премий
+GET http://localhost:8080/prizes
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwODAiLCJ1c2VybmFtZSI6ImVtaWx5cyIsImV4cCI6MTc3OTA1ODA1OX0.FtDcWe94jVbuQgy875AfFf0V0TgMUJB9ptNoQBD_EAM
+
+###
+
+### 3. Получение конкретной премии (например, физика за 2023 год)
+GET http://localhost:8080/prizes/2023/physics
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwODAiLCJ1c2VybmFtZSI6ImVtaWx5cyIsImV4cCI6MTc3OTA1ODA1OX0.FtDcWe94jVbuQgy875AfFf0V0TgMUJB9ptNoQBD_EAM
+
+###
+
+### 4. Получение лауреатов конкретной премии
+GET http://localhost:8080/prizes/2023/physics/laureates
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwODAiLCJ1c2VybmFtZSI6ImVtaWx5cyIsImV4cCI6MTc3OTA1ODA1OX0.FtDcWe94jVbuQgy875AfFf0V0TgMUJB9ptNoQBD_EAM
