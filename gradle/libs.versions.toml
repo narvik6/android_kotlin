@@ -5,6 +5,7 @@ kotlin = "2.3.20"
 ktor = "3.0.0"
 logback = "1.4.14"
 junit-jupiter-engine = "6.0.1"
+shadow = "9.4.1"
 
 [libraries]
 # Ktor Server & Engine
@@ -28,4 +29,4 @@ junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", vers
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" } # Подключаем обновленный плагин

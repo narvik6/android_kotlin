@@ -5,22 +5,17 @@
  * For more details on building Java & JVM projects, please refer to https://docs.gradle.org/9.5.1/userguide/building_java_projects.html in the Gradle documentation.
  */
 
-plugins {
-    // Apply the org.jetbrains.kotlin.jvm Plugin to add support for Kotlin.
-    alias(libs.plugins.kotlin.jvm)
-    
-    // Apply serialization plugin for JSON support
-    alias(libs.plugins.kotlin.serialization)
-    
-    // Apply Ktor plugin
-    alias(libs.plugins.ktor)
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import com.github.jengelman.gradle.plugins.shadow.transformers.AppendingTransformer
 
-    // Apply the application plugin to add support for building a CLI application in Java.
+plugins {
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.shadow)
     application
 }
 
 repositories {
-    // Use Maven Central for resolving dependencies.
     mavenCentral()
 }
 
@@ -40,7 +35,7 @@ dependencies {
     implementation(libs.ktor.server.call.logging)
     implementation(libs.logback.classic)
 
-    // Testing
+    // Тестирование
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation(libs.junit.jupiter.engine)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -57,7 +52,14 @@ application {
     mainClass = "org.example.App" 
 }
 
+
+tasks.withType<ShadowJar> {
+    mergeServiceFiles() // Необходимо для работы некоторых внутренних механизмов SPI
+    transform(AppendingTransformer::class.java) {
+        resource = "reference.conf" // Собираем все конфиги Ktor в один
+    }
+}
+
 tasks.named<Test>("test") {
-    // Use JUnit Platform for unit tests.
     useJUnitPlatform()
 }
