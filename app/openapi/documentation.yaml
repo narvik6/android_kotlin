@@ -1,0 +1,176 @@
+openapi: 3.0.0
+info:
+  title: Nobel Prize API
+  description: API для работы с лауреатами Нобелевской премии (Задание 5)
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Локальный сервер
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: emilys
+        password:
+          type: string
+          example: emilyspass
+    TokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+    Laureate:
+      type: object
+      properties:
+        id:
+          type: integer
+        fullName:
+          type: string
+        motivation:
+          type: string
+    NobelPrize:
+      type: object
+      properties:
+        id:
+          type: integer
+        year:
+          type: string
+        category:
+          type: string
+        laureates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Laureate'
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        role:
+          type: string
+
+paths:
+  /auth/login:
+    post:
+      summary: Авторизация пользователя
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Неверные учетные данные
+
+  /prizes:
+    get:
+      summary: Получить список всех премий
+      tags:
+        - Prizes
+      responses:
+        '200':
+          description: Список премий
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NobelPrize'
+
+  /users/me:
+    get:
+      summary: Получить профиль пользователя
+      tags:
+        - Users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Данные пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Не авторизован
+
+  /users/me/prizes:
+    get:
+      summary: Получить список избранных премий пользователя
+      tags:
+        - Favorites
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список избранных премий
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NobelPrize'
+        '401':
+          description: Не авторизован
+
+  /users/me/prizes/{prizeId}:
+    post:
+      summary: Добавить премию в избранное
+      tags:
+        - Favorites
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: prizeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Успешно добавлено
+        '409':
+          description: Уже в избранном
+        '401':
+          description: Не авторизован
+    delete:
+      summary: Удалить премию из избранного
+      tags:
+        - Favorites
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: prizeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешно удалено
+        '404':
+          description: Премия не найдена в избранном
+        '401':
+          description: Не авторизован

@@ -1,29 +1,28 @@
 package org.example.domain.models
 
-
-// Модели для премий [cite: 231, 234]
-
-data class Laureate(
-    val id: String,
-    val fullName: String,
-    val motivation: String
+// Чистые бизнес-сущности без привязки к JSON
+data class User(
+    val id: Int,
+    val username: String,
+    val passwordHash: String,
+    val role: String
 )
 
+data class Laureate(
+    val id: Int,
+    val fullName: String,
+    val motivation: String? = null,
+    val portraitUrl: String? = null
+)
 
 data class NobelPrize(
+    val id: Int = 0,
     val year: String,
     val category: String,
     val laureates: List<Laureate> = emptyList()
 )
 
-// Модели для авторизации [cite: 226]
-
 data class LoginRequest(
     val username: String,
     val password: String
-)
-
-
-data class TokenResponse(
-    val token: String
 )

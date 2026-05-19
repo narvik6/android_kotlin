@@ -1,0 +1,12 @@
+package org.example.plugins
+
+import io.ktor.server.application.*
+import io.ktor.server.plugins.swagger.*
+import io.ktor.server.routing.*
+
+fun Application.configureSwagger() {
+    routing {
+        // Подключает Swagger UI по адресу http://localhost:8080/swagger
+        swaggerUI(path = "swagger", swaggerFile = "openapi/documentation.yaml")
+    }
+}

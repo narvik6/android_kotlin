@@ -23,6 +23,22 @@ dependencies {
     // Ktor Core & Netty Engine
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)
+    
+    // Exposed + PostgreSQL
+    implementation(libs.exposed.core)
+    implementation(libs.exposed.dao)
+    implementation(libs.exposed.jdbc)
+    implementation(libs.postgresql)
+    implementation(libs.exposed.java.time)
+    
+    // HikariCP (Connection Pool)
+    implementation(libs.hikaricp)
+    
+    // Bcrypt
+    implementation(libs.bcrypt)
+    
+    // Swagger UI
+    implementation(libs.ktor.server.swagger)
 
     // JSON Serialization
     implementation(libs.ktor.server.content.negotiation)

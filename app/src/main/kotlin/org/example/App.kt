@@ -5,15 +5,25 @@ package org.example
 
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import org.example.plugins.configureLogging
-import org.example.plugins.configureSecurity
-import org.example.plugins.configureSerialization
+import org.example.data.database.DatabaseFactory
+import org.example.plugins.*
 import org.example.routing.configureRouting
+import kotlinx.coroutines.launch
+import org.example.di.Injection
 
 fun main() {
+    DatabaseFactory.init()
+
     embeddedServer(Netty, port = 8080, host = "0.0.0.0") {
+
+        launch {
+            Injection.userRepository.createTestUserIfNotExists()
+            Injection.syncPrizesUseCase.syncPrizesFromApi()
+        }
+
         configureSerialization()
         configureSecurity()
+        configureSwagger()
         configureLogging()
         configureRouting()
     }.start(wait = true)
