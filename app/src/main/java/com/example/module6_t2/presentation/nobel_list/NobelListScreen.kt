@@ -27,7 +27,7 @@ fun NobelListScreen(
     var expandedCategory by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf("All") }
 
-    val categories = listOf("All", "Physics", "Chemistry", "Medicine", "Literature", "Peace", "Economic Sciences")
+    val categories = listOf("All", "physics", "chemistry", "medicine", "literature", "peace", "economics")
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Нобелевские премии") }) }
@@ -128,6 +128,8 @@ fun NobelListScreen(
 
 @Composable
 fun LaureateCard(laureate: LaureateUiItem, onClick: () -> Unit) {
+    val shortMotivation = laureate.motivation.take(100)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -143,7 +145,7 @@ fun LaureateCard(laureate: LaureateUiItem, onClick: () -> Unit) {
             Text(text = laureate.fullName, style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = laureate.motivation,
+                text = shortMotivation,
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis

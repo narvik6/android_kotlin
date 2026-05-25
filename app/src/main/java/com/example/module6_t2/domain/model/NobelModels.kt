@@ -10,5 +10,7 @@ data class Laureate(
     val id: String,
     val fullName: String,
     val motivation: String,
-    val birthCountry: String? = null
+    val birthCountry: String? = null,
+    val birthPlace: String? = null,
+    val portraitUrl: String? = null
 )

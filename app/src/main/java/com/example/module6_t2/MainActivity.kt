@@ -7,6 +7,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -15,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.module6_t2.presentation.Screen
 import com.example.module6_t2.presentation.nobel_detail.NobelDetailScreen
 import com.example.module6_t2.presentation.nobel_list.NobelListScreen
+import com.example.module6_t2.presentation.nobel_list.NobelUiState
 import com.example.module6_t2.presentation.nobel_list.NobelViewModel
 
 class MainActivity : ComponentActivity() {
@@ -46,11 +49,15 @@ class MainActivity : ComponentActivity() {
 
                         composable(route = Screen.NobelDetail.route) { backStackEntry ->
                             val laureateId = backStackEntry.arguments?.getString("laureateId")
+                            val uiState by viewModel.uiState.collectAsState()
                             val laureate = laureateId?.let { viewModel.getLaureateById(it) }
 
                             NobelDetailScreen(
                                 laureate = laureate,
-                                onBackClick = { navController.navigateUp() }
+                                onBackClick = { navController.navigateUp() },
+                                isLoading = uiState is NobelUiState.Loading,
+                                errorMessage = (uiState as? NobelUiState.Error)?.message,
+                                onRetry = { viewModel.loadPrizes() }
                             )
                         }
                     }

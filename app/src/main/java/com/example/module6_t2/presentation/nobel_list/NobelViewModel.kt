@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.module6_t2.NobelApp
+import com.example.module6_t2.domain.model.fold
 import com.example.module6_t2.domain.usecase.GetNobelPrizesUseCase
 import com.example.module6_t2.presentation.model.LaureateUiItem
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,14 +46,16 @@ class NobelViewModel(
                                 category = prize.category,
                                 fullName = laureate.fullName,
                                 motivation = laureate.motivation,
-                                birthCountry = laureate.birthCountry
+                                birthCountry = laureate.birthCountry,
+                                birthPlace = laureate.birthPlace,
+                                portraitUrl = laureate.portraitUrl
                             )
                         }
                     }
                     _uiState.value = NobelUiState.Success(uiItems)
                 },
-                onFailure = { exception ->
-                    _uiState.value = NobelUiState.Error(exception.localizedMessage ?: "Ошибка загрузки")
+                onError = { error ->
+                    _uiState.value = NobelUiState.Error(error.message)
                 }
             )
         }

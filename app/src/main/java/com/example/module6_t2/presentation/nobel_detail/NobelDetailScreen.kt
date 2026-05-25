@@ -7,15 +7,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.example.module6_t2.presentation.model.LaureateUiItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NobelDetailScreen(
     laureate: LaureateUiItem?,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
+    onRetry: (() -> Unit)? = null
 ) {
     Scaffold(
         topBar = {
@@ -29,8 +34,45 @@ fun NobelDetailScreen(
             )
         }
     ) { paddingValues ->
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+            return@Scaffold
+        }
+
+        if (errorMessage != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = errorMessage, color = MaterialTheme.colorScheme.error)
+                    if (onRetry != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = onRetry) {
+                            Text("Повторить")
+                        }
+                    }
+                }
+            }
+            return@Scaffold
+        }
+
         if (laureate == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
                 Text("Информация не найдена")
             }
             return@Scaffold
@@ -49,15 +91,32 @@ fun NobelDetailScreen(
 
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    if (!laureate.portraitUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = laureate.portraitUrl,
+                            contentDescription = "Фото ${laureate.fullName}",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(240.dp),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
                     Text(
                         text = laureate.fullName,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
 
-                    laureate.birthCountry?.let { country ->
+                    val birthInfo = listOfNotNull(
+                        laureate.birthCountry,
+                        laureate.birthPlace
+                    ).distinct().joinToString(", ")
+
+                    if (birthInfo.isNotBlank()) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Страна: $country", style = MaterialTheme.typography.bodyLarge)
+                        Text(text = "Страна/место рождения: $birthInfo", style = MaterialTheme.typography.bodyLarge)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
