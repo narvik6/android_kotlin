@@ -7,6 +7,7 @@ import org.example.data.database.UserPrizeTable
 import org.example.domain.models.Laureate
 import org.example.domain.models.NobelPrize
 import org.example.domain.repository.PrizeRepository
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -20,12 +21,7 @@ class PrizeRepositoryImpl : PrizeRepository {
             val prizeId = row[PrizeTable.id]
             val laureates = fetchLaureatesForPrize(prizeId)
 
-            NobelPrize(
-                id = prizeId,
-                year = row[PrizeTable.awardYear],
-                category = row[PrizeTable.category],
-                laureates = laureates
-            )
+            row.toNobelPrize(laureates)
         }
     }
 
@@ -34,19 +30,14 @@ class PrizeRepositoryImpl : PrizeRepository {
             .map { row ->
                 val prizeId = row[PrizeTable.id]
                 val laureates = fetchLaureatesForPrize(prizeId)
-                NobelPrize(
-                    id = prizeId,
-                    year = row[PrizeTable.awardYear],
-                    category = row[PrizeTable.category],
-                    laureates = laureates
-                )
-            }.singleOrNull()
+                row.toNobelPrize(laureates)
+            }.firstOrNull()
     }
 
     override suspend fun getLaureates(year: String, category: String): List<Laureate>? = dbQuery {
         val prize =
             PrizeTable.selectAll().where { (PrizeTable.awardYear eq year) and (PrizeTable.category eq category) }
-                .singleOrNull() ?: return@dbQuery null
+                .firstOrNull() ?: return@dbQuery null
 
         fetchLaureatesForPrize(prize[PrizeTable.id])
     }
@@ -58,14 +49,19 @@ class PrizeRepositoryImpl : PrizeRepository {
             .map { row ->
                 val prizeId = row[PrizeTable.id]
                 val laureates = fetchLaureatesForPrize(prizeId)
-                NobelPrize(
-                    id = prizeId,
-                    year = row[PrizeTable.awardYear],
-                    category = row[PrizeTable.category],
-                    laureates = laureates
-                )
+                row.toNobelPrize(laureates)
             }
     }
+
+    private fun ResultRow.toNobelPrize(laureates: List<Laureate>) = NobelPrize(
+        id = this[PrizeTable.id],
+        year = this[PrizeTable.awardYear],
+        category = this[PrizeTable.category],
+        fullName = this[PrizeTable.fullName],
+        motivation = this[PrizeTable.motivation],
+        detailLink = this[PrizeTable.detailLink],
+        laureates = laureates
+    )
 
     private fun fetchLaureatesForPrize(prizeId: Int): List<Laureate> {
         return LaureateTable.selectAll().where { LaureateTable.prizeId eq prizeId }
@@ -73,6 +69,7 @@ class PrizeRepositoryImpl : PrizeRepository {
                 Laureate(
                     id = lRow[LaureateTable.id],
                     fullName = lRow[LaureateTable.fullName],
+                    portion = lRow[LaureateTable.portion],
                     motivation = lRow[LaureateTable.motivation],
                     portraitUrl = lRow[LaureateTable.portraitUrl]
                 )

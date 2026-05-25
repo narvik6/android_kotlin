@@ -10,6 +10,7 @@ import kotlinx.serialization.json.Json
 import org.example.data.database.DatabaseFactory.dbQuery
 import org.example.data.database.PrizeTable
 import org.example.data.database.LaureateTable
+import org.example.data.remote.dto.ExternalLaureate
 import org.example.data.remote.dto.ExternalNobelResponse
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -36,23 +37,34 @@ class SyncPrizesUseCase {
 
                 dbQuery {
                     apiData.nobelPrizes.forEach { externalPrize ->
+                        val awardYear = externalPrize.awardYear.take(4)
+                        val category = externalPrize.category.en ?: "Unknown"
+                        val fullName = externalPrize.categoryFullName?.en?.take(255)
+                        val motivation = buildPrizeMotivation(externalPrize.laureates)
+                        val detailLink = externalPrize.links?.firstOrNull { link ->
+                            link.rel == "nobelPrize"
+                        }?.href?.take(255) ?: externalPrize.links?.firstOrNull()?.href?.take(255)
+
                         val prizeId = PrizeTable.insert {
-                            it[awardYear] = externalPrize.awardYear.take(4)
-                            it[category] = externalPrize.category.en ?: "Unknown"
+                            it[PrizeTable.awardYear] = awardYear
+                            it[PrizeTable.category] = category
+                            it[PrizeTable.fullName] = fullName
+                            it[PrizeTable.motivation] = motivation
+                            it[PrizeTable.detailLink] = detailLink
                         }[PrizeTable.id]
 
                         externalPrize.laureates?.forEach { externalLaureate ->
                             val portrait = externalLaureate.links?.find { it.rel == "portrait" }?.href
 
                             LaureateTable.insert {
-                                it[this.prizeId] = prizeId
-                                it[fullName] =
+                                it[LaureateTable.prizeId] = prizeId
+                                it[LaureateTable.fullName] =
                                     (externalLaureate.fullName?.en ?: externalLaureate.knownName?.en ?: "Unknown").take(
                                         255
                                     )
-                                it[portion] = externalLaureate.portion?.take(10)
-                                it[motivation] = externalLaureate.motivation?.en
-                                it[portraitUrl] = portrait?.take(255)
+                                it[LaureateTable.portion] = externalLaureate.portion?.take(10)
+                                it[LaureateTable.motivation] = externalLaureate.motivation?.en
+                                it[LaureateTable.portraitUrl] = portrait?.take(255)
                             }
                         }
                     }
@@ -62,4 +74,11 @@ class SyncPrizesUseCase {
             println("Error syncing prizes: ${e.message}")
         }
     }
+
+    private fun buildPrizeMotivation(laureates: List<ExternalLaureate>?): String? =
+        laureates
+            ?.mapNotNull { it.motivation?.en }
+            ?.distinct()
+            ?.joinToString(separator = "; ")
+            ?.takeIf { it.isNotBlank() }
 }

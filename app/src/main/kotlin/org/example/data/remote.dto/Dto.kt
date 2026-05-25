@@ -9,6 +9,7 @@ import org.example.domain.models.NobelPrize
 data class LaureateDto(
     val id: Int,
     val fullName: String,
+    val portion: String? = null,
     val motivation: String? = null,
     val portraitUrl: String? = null
 )
@@ -18,6 +19,9 @@ data class NobelPrizeDto(
     val id: Int,
     val year: String,
     val category: String,
+    val fullName: String? = null,
+    val motivation: String? = null,
+    val detailLink: String? = null,
     val laureates: List<LaureateDto> = emptyList()
 )
 
@@ -40,6 +44,7 @@ fun LoginRequestDto.toDomain() = LoginRequest(
 fun Laureate.toDto() = LaureateDto(
     id = this.id,
     fullName = this.fullName,
+    portion = this.portion,
     motivation = this.motivation,
     portraitUrl = this.portraitUrl
 )
@@ -48,6 +53,9 @@ fun NobelPrize.toDto() = NobelPrizeDto(
     id = this.id,
     year = this.year,
     category = this.category,
+    fullName = this.fullName,
+    motivation = this.motivation,
+    detailLink = this.detailLink,
     laureates = this.laureates.map { it.toDto() }
 )
 
@@ -58,6 +66,8 @@ data class ExternalNobelResponse(val nobelPrizes: List<ExternalPrize>)
 data class ExternalPrize(
     val awardYear: String,
     val category: ExternalText,
+    val categoryFullName: ExternalText? = null,
+    val links: List<ExternalLink>? = null,
     val laureates: List<ExternalLaureate>? = null
 )
 
