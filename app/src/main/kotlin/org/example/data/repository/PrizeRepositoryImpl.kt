@@ -79,6 +79,12 @@ class PrizeRepositoryImpl : PrizeRepository {
             }
     }
 
+    override suspend fun prizeExists(prizeId: Int): Boolean = dbQuery {
+        PrizeTable.selectAll()
+            .where { PrizeTable.id eq prizeId }
+            .count() > 0
+    }
+
     override suspend fun addFavorite(userId: Int, prizeId: Int): Boolean = dbQuery {
         val exists = UserPrizeTable.selectAll()
             .where { (UserPrizeTable.userId eq userId) and (UserPrizeTable.prizeId eq prizeId) }

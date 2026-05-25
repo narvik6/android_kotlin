@@ -1,5 +1,7 @@
 package org.example.domain.usecase
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
@@ -26,7 +28,9 @@ class SyncPrizesUseCase {
                 .GET()
                 .build()
 
-            val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+            val response = withContext(Dispatchers.IO) {
+                client.send(request, HttpResponse.BodyHandlers.ofString())
+            }
             if (response.statusCode() == 200) {
                 val apiData = jsonParser.decodeFromString<ExternalNobelResponse>(response.body())
 
@@ -39,10 +43,13 @@ class SyncPrizesUseCase {
 
                         externalPrize.laureates?.forEach { externalLaureate ->
                             val portrait = externalLaureate.links?.find { it.rel == "portrait" }?.href
-                            
+
                             LaureateTable.insert {
                                 it[this.prizeId] = prizeId
-                                it[fullName] = (externalLaureate.fullName?.en ?: externalLaureate.knownName?.en ?: "Unknown").take(255)
+                                it[fullName] =
+                                    (externalLaureate.fullName?.en ?: externalLaureate.knownName?.en ?: "Unknown").take(
+                                        255
+                                    )
                                 it[portion] = externalLaureate.portion?.take(10)
                                 it[motivation] = externalLaureate.motivation?.en
                                 it[portraitUrl] = portrait?.take(255)

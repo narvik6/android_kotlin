@@ -4,7 +4,6 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.example.di.Injection
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
@@ -13,10 +12,10 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 object DatabaseFactory {
     fun init() {
         val config = HikariConfig().apply {
-            jdbcUrl = "jdbc:postgresql://ep-withered-bread-aptovhjc.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require"
+            jdbcUrl = requiredEnv("DB_JDBC_URL")
             driverClassName = "org.postgresql.Driver"
-            username = "neondb_owner"
-            password = "npg_Q9pbS5NHyLDe"
+            username = requiredEnv("DB_USER")
+            password = requiredEnv("DB_PASSWORD")
 
             maximumPoolSize = 10
             isAutoCommit = false
@@ -37,4 +36,7 @@ object DatabaseFactory {
         withContext<T>(Dispatchers.IO) {
             suspendTransaction<T> { block() }
         }
+
+    private fun requiredEnv(name: String): String =
+        System.getenv(name) ?: error("Environment variable $name is required")
 }

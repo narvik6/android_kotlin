@@ -4,6 +4,7 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
+import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -13,17 +14,13 @@ import org.example.security.JwtConfig
 
 fun Application.configureRouting() {
     routing {
+        post("/login") {
+            handleLogin(call)
+        }
+
         route("/auth") {
             post("/login") {
-                val requestDto = call.receive<LoginRequestDto>()
-                val isValid = Injection.authUseCase.authenticate(requestDto.toDomain())
-
-                if (isValid) {
-                    val token = JwtConfig.generateToken(requestDto.username)
-                    call.respond(HttpStatusCode.OK, TokenResponseDto(token))
-                } else {
-                    call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Invalid credentials"))
-                }
+                handleLogin(call)
             }
         }
 
@@ -33,18 +30,20 @@ fun Application.configureRouting() {
                 call.respond(HttpStatusCode.OK, prizes)
             }
 
-            get("/{year}/{category}") {
-                val year = call.parameters["year"] ?: return@get call.respond(HttpStatusCode.BadRequest)
-                val category = call.parameters["category"] ?: return@get call.respond(HttpStatusCode.BadRequest)
-                val prize = Injection.prizeRepository.getPrize(year, category)?.toDto()
-                if (prize != null) call.respond(prize) else call.respond(HttpStatusCode.NotFound)
-            }
+            authenticate("auth-jwt") {
+                get("/{year}/{category}") {
+                    val year = call.parameters["year"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+                    val category = call.parameters["category"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+                    val prize = Injection.prizeRepository.getPrize(year, category)?.toDto()
+                    if (prize != null) call.respond(prize) else call.respond(HttpStatusCode.NotFound)
+                }
 
-            get("/{year}/{category}/laureates") {
-                val year = call.parameters["year"] ?: return@get call.respond(HttpStatusCode.BadRequest)
-                val category = call.parameters["category"] ?: return@get call.respond(HttpStatusCode.BadRequest)
-                val laureates = Injection.prizeRepository.getLaureates(year, category)?.map { it.toDto() }
-                if (laureates != null) call.respond(laureates) else call.respond(HttpStatusCode.NotFound)
+                get("/{year}/{category}/laureates") {
+                    val year = call.parameters["year"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+                    val category = call.parameters["category"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+                    val laureates = Injection.prizeRepository.getLaureates(year, category)?.map { it.toDto() }
+                    if (laureates != null) call.respond(laureates) else call.respond(HttpStatusCode.NotFound)
+                }
             }
         }
 
@@ -82,6 +81,10 @@ fun Application.configureRouting() {
                             HttpStatusCode.BadRequest
                         )
 
+                        if (!Injection.prizeRepository.prizeExists(prizeId)) {
+                            return@post call.respond(HttpStatusCode.NotFound, mapOf("error" to "Prize not found"))
+                        }
+
                         val added = Injection.prizeRepository.addFavorite(user.id, prizeId)
                         if (added) call.respond(HttpStatusCode.Created) else call.respond(
                             HttpStatusCode.Conflict,
@@ -101,6 +104,23 @@ fun Application.configureRouting() {
                 }
             }
         }
+    }
+}
+
+private suspend fun handleLogin(call: ApplicationCall) {
+    val requestDto = try {
+        call.receive<LoginRequestDto>()
+    } catch (e: BadRequestException) {
+        call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid request body"))
+        return
+    }
+
+    val isValid = Injection.authUseCase.authenticate(requestDto.toDomain())
+    if (isValid) {
+        val token = JwtConfig.generateToken(requestDto.username)
+        call.respond(HttpStatusCode.OK, TokenResponseDto(token))
+    } else {
+        call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Invalid credentials"))
     }
 }
 

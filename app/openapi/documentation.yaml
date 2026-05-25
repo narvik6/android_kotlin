@@ -63,6 +63,29 @@ components:
           type: string
 
 paths:
+  /login:
+    post:
+      summary: Авторизация пользователя
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Некорректное тело запроса
+        '401':
+          description: Неверные учетные данные
+
   /auth/login:
     post:
       summary: Авторизация пользователя
@@ -81,6 +104,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Некорректное тело запроса
         '401':
           description: Неверные учетные данные
 
@@ -98,6 +123,68 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/NobelPrize'
+
+  /prizes/{year}/{category}:
+    get:
+      summary: Получить детальную информацию о премии
+      tags:
+        - Prizes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: category
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Данные премии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NobelPrize'
+        '401':
+          description: Не авторизован
+        '404':
+          description: Премия не найдена
+
+  /prizes/{year}/{category}/laureates:
+    get:
+      summary: Получить список лауреатов конкретной премии
+      tags:
+        - Prizes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: category
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Список лауреатов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Laureate'
+        '401':
+          description: Не авторизован
+        '404':
+          description: Премия не найдена
 
   /users/me:
     get:
@@ -151,6 +238,8 @@ paths:
       responses:
         '201':
           description: Успешно добавлено
+        '404':
+          description: Премия не найдена
         '409':
           description: Уже в избранном
         '401':
