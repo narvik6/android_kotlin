@@ -1,6 +1,10 @@
 package com.example.myapplication.presentation.ui
 
 import android.Manifest
+import android.bluetooth.BluetoothDevice
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 
@@ -44,6 +49,7 @@ fun BleScannerScreen() {
         listOf(
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION
         )
     )
@@ -95,11 +101,15 @@ fun BleScannerScreen() {
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
                         .clickable {
-                            viewModel.connect(device)
+                            if (context.hasBluetoothConnectPermission()) {
+                                viewModel.connect(device)
+                            } else {
+                                permissionState.launchMultiplePermissionRequest()
+                            }
                         }
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(device.name ?: "Без имени", style = MaterialTheme.typography.titleMedium)
+                        Text(device.displayName(context), style = MaterialTheme.typography.titleMedium)
                         Text(device.address, style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -120,4 +130,30 @@ fun BleScannerScreen() {
             }
         }
     }
+}
+
+private fun BluetoothDevice.displayName(context: Context): String {
+    return if (
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.BLUETOOTH_CONNECT
+        ) == PackageManager.PERMISSION_GRANTED
+    ) {
+        try {
+            name?.takeIf { it.isNotBlank() } ?: "Без имени"
+        } catch (_: SecurityException) {
+            "Без имени"
+        }
+    } else {
+        "Без имени"
+    }
+}
+
+private fun Context.hasBluetoothConnectPermission(): Boolean {
+    return Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+        ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.BLUETOOTH_CONNECT
+        ) == PackageManager.PERMISSION_GRANTED
 }

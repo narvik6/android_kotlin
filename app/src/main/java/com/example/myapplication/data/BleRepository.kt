@@ -1,6 +1,7 @@
 package com.example.myapplication.data
 
 
+import android.Manifest
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
@@ -8,11 +9,14 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothStatusCodes
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,8 +50,9 @@ class BleRepository(context: Context) {
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val device = result.device
-            if (!device.name.isNullOrBlank()) {
-                println("Найдено устройство: ${device.name} - ${device.address}")
+            val deviceName = getDeviceName(device)
+            if (!deviceName.isNullOrBlank()) {
+                println("Найдено устройство: $deviceName - ${device.address}")
 
                 val current = _devices.value.toMutableList()
                 if (current.none { it.address == device.address }) {
@@ -69,6 +74,7 @@ class BleRepository(context: Context) {
     fun startScan() {
         if (!adapter.isEnabled) return
         val scanner = adapter.bluetoothLeScanner ?: return
+        if (!hasBluetoothScanPermission()) return
 
         _devices.value = emptyList()  // очищаем список
 
@@ -76,38 +82,64 @@ class BleRepository(context: Context) {
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
 
-        scanner.startScan(null, settings, scanCallback)
-        _isScanning.value = true
+        try {
+            scanner.startScan(null, settings, scanCallback)
+            _isScanning.value = true
+        } catch (_: SecurityException) {
+            _isScanning.value = false
+        }
     }
 
     fun stopScan() {
-        adapter.bluetoothLeScanner?.stopScan(scanCallback)
+        if (hasBluetoothScanPermission()) {
+            try {
+                adapter.bluetoothLeScanner?.stopScan(scanCallback)
+            } catch (_: SecurityException) {
+                // Permission can be revoked while scanning.
+            }
+        }
         _isScanning.value = false
     }
 
     fun connect(device: BluetoothDevice) {
+        if (!hasBluetoothConnectPermission()) return
         stopScan()
-        currentGatt = device.connectGatt(appContext, false, gattCallback)
-        _connectionState.value = "Connecting"
+        try {
+            currentGatt = device.connectGatt(appContext, false, gattCallback)
+            _connectionState.value = "Connecting"
+        } catch (_: SecurityException) {
+            _connectionState.value = "Disconnected"
+        }
     }
 
     fun disconnect() {
         readJob?.cancel()
         readJob = null
-        currentGatt?.disconnect()
-        currentGatt?.close()
+        if (hasBluetoothConnectPermission()) {
+            try {
+                currentGatt?.disconnect()
+                currentGatt?.close()
+            } catch (_: SecurityException) {
+                // Permission can be revoked while connected.
+            }
+        }
         currentGatt = null
         _connectionState.value = "Disconnected"
         _heartRate.value = null
     }
 
     fun refreshData() {
+        if (!hasBluetoothConnectPermission()) return
         currentGatt?.let { gatt ->
             val service = gatt.getService(HEART_RATE_SERVICE_UUID)
             val characteristic = service?.getCharacteristic(HEART_RATE_MEASUREMENT_UUID)
             characteristic?.let {
-                val success = gatt.readCharacteristic(it)
-                println("Ручное обновление данных: $success")
+                try {
+                    val success = gatt.readCharacteristic(it)
+                    println("Ручное обновление данных: $success")
+                } catch (_: SecurityException) {
+                    println("Нет разрешения на чтение характеристики")
+                }
             }
         }
     }
@@ -116,7 +148,15 @@ class BleRepository(context: Context) {
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 _connectionState.value = "Connected"
-                gatt.discoverServices()
+                if (!hasBluetoothConnectPermission()) {
+                    _connectionState.value = "Disconnected"
+                    return
+                }
+                try {
+                    gatt.discoverServices()
+                } catch (_: SecurityException) {
+                    _connectionState.value = "Disconnected"
+                }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 readJob?.cancel()
                 readJob = null
@@ -127,6 +167,11 @@ class BleRepository(context: Context) {
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             println("onServicesDiscovered: status = $status")
+
+            if (!hasBluetoothConnectPermission()) {
+                println("Нет разрешения на работу с GATT")
+                return
+            }
 
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 val service = gatt.getService(HEART_RATE_SERVICE_UUID)
@@ -146,13 +191,25 @@ class BleRepository(context: Context) {
                 readJob?.cancel()
                 readJob = scope.launch {
                     delay(500)
-                    val readSuccess = gatt.readCharacteristic(characteristic)
-                    println("Первое чтение после задержки: $readSuccess")
+                    if (!hasBluetoothConnectPermission()) return@launch
+                    try {
+                        val readSuccess = gatt.readCharacteristic(characteristic)
+                        println("Первое чтение после задержки: $readSuccess")
+                    } catch (_: SecurityException) {
+                        println("Нет разрешения на первое чтение характеристики")
+                        return@launch
+                    }
 
                     while (true) {
                         delay(5000)
-                        val cycleSuccess = gatt.readCharacteristic(characteristic)
-                        println("Циклическое чтение: $cycleSuccess")
+                        if (!hasBluetoothConnectPermission()) return@launch
+                        try {
+                            val cycleSuccess = gatt.readCharacteristic(characteristic)
+                            println("Циклическое чтение: $cycleSuccess")
+                        } catch (_: SecurityException) {
+                            println("Нет разрешения на циклическое чтение характеристики")
+                            return@launch
+                        }
                     }
                 }
             } else {
@@ -258,7 +315,17 @@ class BleRepository(context: Context) {
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic
         ) {
-            val notificationEnabled = gatt.setCharacteristicNotification(characteristic, true)
+            if (!hasBluetoothConnectPermission()) {
+                println("Нет разрешения на включение уведомлений")
+                return
+            }
+
+            val notificationEnabled = try {
+                gatt.setCharacteristicNotification(characteristic, true)
+            } catch (_: SecurityException) {
+                println("Нет разрешения на локальное включение уведомлений")
+                return
+            }
             println("Локальное включение уведомлений: $notificationEnabled")
 
             val descriptor = characteristic.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG_UUID)
@@ -268,16 +335,52 @@ class BleRepository(context: Context) {
             }
 
             val writeStarted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) == BluetoothGatt.GATT_SUCCESS
+                try {
+                    gatt.writeDescriptor(
+                        descriptor,
+                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    ) == BluetoothStatusCodes.SUCCESS
+                } catch (_: SecurityException) {
+                    false
+                }
             } else {
                 @Suppress("DEPRECATION")
                 descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
                 @Suppress("DEPRECATION")
-                gatt.writeDescriptor(descriptor)
+                try {
+                    gatt.writeDescriptor(descriptor)
+                } catch (_: SecurityException) {
+                    false
+                }
             }
 
             println("Запись CCC-дескриптора отправлена: $writeStarted")
         }
+    }
+
+    private fun getDeviceName(device: BluetoothDevice): String? {
+        if (!hasBluetoothConnectPermission()) return null
+        return try {
+            device.name
+        } catch (_: SecurityException) {
+            null
+        }
+    }
+
+    private fun hasBluetoothScanPermission(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            ContextCompat.checkSelfPermission(
+                appContext,
+                Manifest.permission.BLUETOOTH_SCAN
+            ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun hasBluetoothConnectPermission(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            ContextCompat.checkSelfPermission(
+                appContext,
+                Manifest.permission.BLUETOOTH_CONNECT
+            ) == PackageManager.PERMISSION_GRANTED
     }
 
     companion object {
