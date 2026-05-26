@@ -16,7 +16,7 @@ class BleViewModel(
 ) : ViewModel() {
 
     val devices: StateFlow<List<BluetoothDevice>> = repository.devices
-    val bloodPressure: StateFlow<String?> = repository.bloodPressure
+    val heartRate: StateFlow<Int?> = repository.heartRate
     val connectionState: StateFlow<String> = repository.connectionState
     val isScanning: StateFlow<Boolean> = repository.isScanning
 
@@ -43,4 +43,3 @@ class BleViewModel(
         super.onCleared()
     }
 }
-

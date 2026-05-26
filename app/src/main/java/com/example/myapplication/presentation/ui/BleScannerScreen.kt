@@ -36,7 +36,7 @@ fun BleScannerScreen() {
     val viewModel = remember { BleViewModel(context) }
 
     val devices by viewModel.devices.collectAsState()
-    val bloodPressure by viewModel.bloodPressure.collectAsState()
+    val heartRate by viewModel.heartRate.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
 
@@ -76,7 +76,10 @@ fun BleScannerScreen() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text("Давление: ${bloodPressure ?: "—"}", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Heart Rate: ${heartRate?.let { "$it bpm" } ?: "—"}",
+            style = MaterialTheme.typography.titleLarge
+        )
         Text("Статус: $connectionState", style = MaterialTheme.typography.titleMedium)
 
         Spacer(modifier = Modifier.height(16.dp))

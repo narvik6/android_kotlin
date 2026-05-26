@@ -12,8 +12,10 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,20 +26,22 @@ import java.util.UUID
 class BleRepository(context: Context) {
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val appContext = context.applicationContext
 
-    private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+    private val bluetoothManager = appContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val adapter = bluetoothManager.adapter
 
     private val _devices = MutableStateFlow<List<BluetoothDevice>>(emptyList())
     val devices: StateFlow<List<BluetoothDevice>> = _devices
 
-    private val _bloodPressure = MutableStateFlow<String?>(null)  // "120/80 mmHg, pulse 72"
-    val bloodPressure: StateFlow<String?> = _bloodPressure
+    private val _heartRate = MutableStateFlow<Int?>(null)
+    val heartRate: StateFlow<Int?> = _heartRate
 
     private val _connectionState = MutableStateFlow("Disconnected")
     val connectionState: StateFlow<String> = _connectionState
 
     private var currentGatt: BluetoothGatt? = null
+    private var readJob: Job? = null
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -83,22 +87,24 @@ class BleRepository(context: Context) {
 
     fun connect(device: BluetoothDevice) {
         stopScan()
-        currentGatt = device.connectGatt(null, false, gattCallback)
+        currentGatt = device.connectGatt(appContext, false, gattCallback)
         _connectionState.value = "Connecting"
     }
 
     fun disconnect() {
+        readJob?.cancel()
+        readJob = null
         currentGatt?.disconnect()
         currentGatt?.close()
         currentGatt = null
         _connectionState.value = "Disconnected"
-        _bloodPressure.value = null
+        _heartRate.value = null
     }
 
     fun refreshData() {
         currentGatt?.let { gatt ->
-            val service = gatt.getService(BLOOD_PRESSURE_SERVICE_UUID)
-            val characteristic = service?.getCharacteristic(BLOOD_PRESSURE_MEASUREMENT_UUID)
+            val service = gatt.getService(HEART_RATE_SERVICE_UUID)
+            val characteristic = service?.getCharacteristic(HEART_RATE_MEASUREMENT_UUID)
             characteristic?.let {
                 val success = gatt.readCharacteristic(it)
                 println("Ручное обновление данных: $success")
@@ -112,8 +118,10 @@ class BleRepository(context: Context) {
                 _connectionState.value = "Connected"
                 gatt.discoverServices()
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                readJob?.cancel()
+                readJob = null
                 _connectionState.value = "Disconnected"
-                _bloodPressure.value = null
+                _heartRate.value = null
             }
         }
 
@@ -121,34 +129,26 @@ class BleRepository(context: Context) {
             println("onServicesDiscovered: status = $status")
 
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                val service = gatt.getService(BLOOD_PRESSURE_SERVICE_UUID)
+                val service = gatt.getService(HEART_RATE_SERVICE_UUID)
                 if (service == null) {
-                    println("Blood Pressure Service НЕ НАЙДЕН!")
+                    println("Heart Rate Service НЕ НАЙДЕН!")
                     return
                 }
 
-                val characteristic = service.getCharacteristic(BLOOD_PRESSURE_MEASUREMENT_UUID)
+                val characteristic = service.getCharacteristic(HEART_RATE_MEASUREMENT_UUID)
                 if (characteristic == null) {
-                    println("Blood Pressure Measurement НЕ НАЙДЕНА!")
+                    println("Heart Rate Measurement НЕ НАЙДЕНА!")
                     return
                 }
 
-                // Включаем уведомления
-                gatt.setCharacteristicNotification(characteristic, true)
+                enableNotifications(gatt, characteristic)
 
-                val descriptor = characteristic.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG_UUID)
-                if (descriptor != null) {
-                    descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    gatt.writeDescriptor(descriptor)
-                    println("Запись CCC-дескриптора отправлена")
-                }
-
-                scope.launch {
+                readJob?.cancel()
+                readJob = scope.launch {
                     delay(500)
                     val readSuccess = gatt.readCharacteristic(characteristic)
                     println("Первое чтение после задержки: $readSuccess")
 
-                    // Цикл чтения
                     while (true) {
                         delay(5000)
                         val cycleSuccess = gatt.readCharacteristic(characteristic)
@@ -160,14 +160,51 @@ class BleRepository(context: Context) {
             }
         }
 
+        @Suppress("DEPRECATION")
         override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
             println("onCharacteristicRead: status = $status, uuid = ${characteristic.uuid}")
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 val value = characteristic.value
                 println("Значение получено (hex): ${value?.joinToString(" ") { "%02x".format(it) } ?: "null"}")
-                parseBloodPressureData(characteristic)
+                if (characteristic.uuid == HEART_RATE_MEASUREMENT_UUID) {
+                    parseHeartRateData(value)
+                }
             } else {
                 println("Ошибка чтения: status = $status")
+            }
+        }
+
+        override fun onCharacteristicRead(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray,
+            status: Int
+        ) {
+            println("onCharacteristicRead: status = $status, uuid = ${characteristic.uuid}")
+            if (status == BluetoothGatt.GATT_SUCCESS && characteristic.uuid == HEART_RATE_MEASUREMENT_UUID) {
+                parseHeartRateData(value)
+            } else if (status != BluetoothGatt.GATT_SUCCESS) {
+                println("Ошибка чтения: status = $status")
+            }
+        }
+
+        @Suppress("DEPRECATION")
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+            val value = characteristic.value
+            println("onCharacteristicChanged: uuid = ${characteristic.uuid}")
+            if (characteristic.uuid == HEART_RATE_MEASUREMENT_UUID) {
+                parseHeartRateData(value)
+            }
+        }
+
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray
+        ) {
+            println("onCharacteristicChanged: uuid = ${characteristic.uuid}")
+            if (characteristic.uuid == HEART_RATE_MEASUREMENT_UUID) {
+                parseHeartRateData(value)
             }
         }
 
@@ -180,49 +217,73 @@ class BleRepository(context: Context) {
             }
         }
 
-        private fun parseBloodPressureData(characteristic: BluetoothGattCharacteristic) {
-            val value = characteristic.value ?: run {
+        private fun parseHeartRateData(value: ByteArray?) {
+            val bytes = value ?: run {
                 println("Значение характеристики пустое (null)")
                 return
             }
 
-            if (value.isEmpty()) {
+            if (bytes.isEmpty()) {
                 println("Значение характеристики пустое (0 байт)")
                 return
             }
 
-            println("Получено значение (hex): ${value.joinToString(" ") { "%02x".format(it) }}")
-            println("Длина: ${value.size} байт")
+            println("Получено значение (hex): ${bytes.joinToString(" ") { "%02x".format(it) }}")
+            println("Длина: ${bytes.size} байт")
 
-            if (value.size < 7) {
-                println("Слишком короткое значение для Blood Pressure Measurement")
+            val flags = bytes[0].toInt() and 0xFF
+            println("Flags: $flags")
+
+            val isHeartRateUint16 = (flags and HEART_RATE_VALUE_FORMAT_UINT16_FLAG) != 0
+
+            val heartRate = if (isHeartRateUint16) {
+                if (bytes.size < 3) {
+                    println("Слишком короткое значение для Heart Rate Measurement UINT16")
+                    return
+                }
+                ((bytes[2].toInt() and 0xFF) shl 8) or (bytes[1].toInt() and 0xFF)
+            } else {
+                if (bytes.size < 2) {
+                    println("Слишком короткое значение для Heart Rate Measurement UINT8")
+                    return
+                }
+                bytes[1].toInt() and 0xFF
+            }
+
+            _heartRate.value = heartRate
+            println("Пульс прочитан: $heartRate bpm")
+        }
+
+        private fun enableNotifications(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic
+        ) {
+            val notificationEnabled = gatt.setCharacteristicNotification(characteristic, true)
+            println("Локальное включение уведомлений: $notificationEnabled")
+
+            val descriptor = characteristic.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG_UUID)
+            if (descriptor == null) {
+                println("CCC-дескриптор НЕ НАЙДЕН!")
                 return
             }
 
-            val flags = value[0].toInt() and 0xFF
-            println("Flags: $flags")
+            val writeStarted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) == BluetoothGatt.GATT_SUCCESS
+            } else {
+                @Suppress("DEPRECATION")
+                descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                @Suppress("DEPRECATION")
+                gatt.writeDescriptor(descriptor)
+            }
 
-            var offset = 1
-
-            val systolic = ((value[offset + 1].toInt() and 0xFF) shl 8) or (value[offset].toInt() and 0xFF)
-            offset += 2
-
-            val diastolic = ((value[offset + 1].toInt() and 0xFF) shl 8) or (value[offset].toInt() and 0xFF)
-            offset += 2
-
-            val mean = ((value[offset + 1].toInt() and 0xFF) shl 8) or (value[offset].toInt() and 0xFF)
-            offset += 2
-
-            val bpText = "$systolic/$diastolic mmHg"
-            _bloodPressure.value = bpText
-
-            println("Давление прочитано: $bpText")
+            println("Запись CCC-дескриптора отправлена: $writeStarted")
         }
     }
 
     companion object {
-        private val BLOOD_PRESSURE_SERVICE_UUID = UUID.fromString("00001810-0000-1000-8000-00805f9b34fb")
-        private val BLOOD_PRESSURE_MEASUREMENT_UUID = UUID.fromString("00002a35-0000-1000-8000-00805f9b34fb")
+        private const val HEART_RATE_VALUE_FORMAT_UINT16_FLAG = 0x01
+        private val HEART_RATE_SERVICE_UUID = UUID.fromString("0000180d-0000-1000-8000-00805f9b34fb")
+        private val HEART_RATE_MEASUREMENT_UUID = UUID.fromString("00002a37-0000-1000-8000-00805f9b34fb")
         private val CLIENT_CHARACTERISTIC_CONFIG_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
     }
 }
