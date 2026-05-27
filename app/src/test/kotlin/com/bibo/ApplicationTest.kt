@@ -7,8 +7,6 @@ import com.bibo.core.error.ValidationException
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.auth.authenticate
-import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
@@ -78,19 +76,12 @@ class ApplicationTest {
     }
 
     @Test
-    fun `protected routes return unauthorized api error without token`() = testApplication {
+    fun `protected endpoints return unauthorized api error without token`() = testApplication {
         application {
             module()
-            routing {
-                authenticate("auth-jwt") {
-                    get("/test-protected") {
-                        call.respondText("ok")
-                    }
-                }
-            }
         }
 
-        val response = client.get("/test-protected")
+        val response = client.get("/diary-entries")
 
         assertEquals(HttpStatusCode.Unauthorized, response.status)
         assertEquals(

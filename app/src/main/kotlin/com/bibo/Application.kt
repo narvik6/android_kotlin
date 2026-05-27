@@ -11,6 +11,13 @@ import com.bibo.core.error.configureErrorHandling
 import com.bibo.core.routing.healthRoutes
 import com.bibo.core.security.JwtService
 import com.bibo.core.security.configureSecurity
+import com.bibo.diaryentries.di.diaryEntriesModule
+import com.bibo.diaryentries.domain.CreateDiaryEntryUseCase
+import com.bibo.diaryentries.domain.DeleteDiaryEntryUseCase
+import com.bibo.diaryentries.domain.GetDiaryEntriesUseCase
+import com.bibo.diaryentries.domain.GetDiaryEntryByIdUseCase
+import com.bibo.diaryentries.domain.UpdateDiaryEntryUseCase
+import com.bibo.diaryentries.presentation.diaryEntryRoutes
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -49,6 +56,7 @@ fun Application.module(config: AppConfig = AppConfigLoader.load()) {
         modules(
             coreModule(config),
             authModule,
+            diaryEntriesModule,
         )
     }
 
@@ -59,9 +67,21 @@ fun Application.module(config: AppConfig = AppConfigLoader.load()) {
 
     val registerUseCase by inject<RegisterUseCase>()
     val loginUseCase by inject<LoginUseCase>()
+    val createDiaryEntryUseCase by inject<CreateDiaryEntryUseCase>()
+    val getDiaryEntriesUseCase by inject<GetDiaryEntriesUseCase>()
+    val getDiaryEntryByIdUseCase by inject<GetDiaryEntryByIdUseCase>()
+    val updateDiaryEntryUseCase by inject<UpdateDiaryEntryUseCase>()
+    val deleteDiaryEntryUseCase by inject<DeleteDiaryEntryUseCase>()
 
     routing {
         healthRoutes()
         authRoutes(registerUseCase, loginUseCase)
+        diaryEntryRoutes(
+            createDiaryEntryUseCase = createDiaryEntryUseCase,
+            getDiaryEntriesUseCase = getDiaryEntriesUseCase,
+            getDiaryEntryByIdUseCase = getDiaryEntryByIdUseCase,
+            updateDiaryEntryUseCase = updateDiaryEntryUseCase,
+            deleteDiaryEntryUseCase = deleteDiaryEntryUseCase,
+        )
     }
 }
