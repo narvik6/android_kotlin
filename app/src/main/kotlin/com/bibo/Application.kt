@@ -18,6 +18,16 @@ import com.bibo.diaryentries.domain.GetDiaryEntriesUseCase
 import com.bibo.diaryentries.domain.GetDiaryEntryByIdUseCase
 import com.bibo.diaryentries.domain.UpdateDiaryEntryUseCase
 import com.bibo.diaryentries.presentation.diaryEntryRoutes
+import com.bibo.journal.di.journalModule
+import com.bibo.journal.domain.GetJournalUseCase
+import com.bibo.journal.presentation.journalRoutes
+import com.bibo.meditationsessions.di.meditationSessionsModule
+import com.bibo.meditationsessions.domain.CreateMeditationSessionUseCase
+import com.bibo.meditationsessions.domain.DeleteMeditationSessionUseCase
+import com.bibo.meditationsessions.domain.GetMeditationSessionByIdUseCase
+import com.bibo.meditationsessions.domain.GetMeditationSessionsUseCase
+import com.bibo.meditationsessions.domain.UpdateMeditationSessionUseCase
+import com.bibo.meditationsessions.presentation.meditationSessionRoutes
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -57,6 +67,8 @@ fun Application.module(config: AppConfig = AppConfigLoader.load()) {
             coreModule(config),
             authModule,
             diaryEntriesModule,
+            meditationSessionsModule,
+            journalModule,
         )
     }
 
@@ -72,6 +84,12 @@ fun Application.module(config: AppConfig = AppConfigLoader.load()) {
     val getDiaryEntryByIdUseCase by inject<GetDiaryEntryByIdUseCase>()
     val updateDiaryEntryUseCase by inject<UpdateDiaryEntryUseCase>()
     val deleteDiaryEntryUseCase by inject<DeleteDiaryEntryUseCase>()
+    val createMeditationSessionUseCase by inject<CreateMeditationSessionUseCase>()
+    val getMeditationSessionsUseCase by inject<GetMeditationSessionsUseCase>()
+    val getMeditationSessionByIdUseCase by inject<GetMeditationSessionByIdUseCase>()
+    val updateMeditationSessionUseCase by inject<UpdateMeditationSessionUseCase>()
+    val deleteMeditationSessionUseCase by inject<DeleteMeditationSessionUseCase>()
+    val getJournalUseCase by inject<GetJournalUseCase>()
 
     routing {
         healthRoutes()
@@ -83,5 +101,13 @@ fun Application.module(config: AppConfig = AppConfigLoader.load()) {
             updateDiaryEntryUseCase = updateDiaryEntryUseCase,
             deleteDiaryEntryUseCase = deleteDiaryEntryUseCase,
         )
+        meditationSessionRoutes(
+            createMeditationSessionUseCase = createMeditationSessionUseCase,
+            getMeditationSessionsUseCase = getMeditationSessionsUseCase,
+            getMeditationSessionByIdUseCase = getMeditationSessionByIdUseCase,
+            updateMeditationSessionUseCase = updateMeditationSessionUseCase,
+            deleteMeditationSessionUseCase = deleteMeditationSessionUseCase,
+        )
+        journalRoutes(getJournalUseCase)
     }
 }
