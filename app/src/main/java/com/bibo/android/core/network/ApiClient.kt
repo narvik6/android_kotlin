@@ -15,6 +15,9 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.request.post
+import io.ktor.client.request.delete
+import io.ktor.client.request.get
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
@@ -66,12 +69,61 @@ class ApiClient(
             }
         }
 
+    suspend fun getDiaryEntries(): AppResult<List<DiaryEntryResponse>> =
+        executeRequest {
+            httpClient.get("${BuildConfig.API_BASE_URL}/diary-entries")
+        }
+
+    suspend fun createDiaryEntry(
+        request: CreateDiaryEntryRequest,
+    ): AppResult<DiaryEntryResponse> =
+        executeRequest {
+            httpClient.post("${BuildConfig.API_BASE_URL}/diary-entries") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        }
+
+    suspend fun updateDiaryEntry(
+        remoteId: String,
+        request: UpdateDiaryEntryRequest,
+    ): AppResult<DiaryEntryResponse> =
+        executeRequest {
+            httpClient.put("${BuildConfig.API_BASE_URL}/diary-entries/$remoteId") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        }
+
+    suspend fun deleteDiaryEntry(remoteId: String): AppResult<Unit> =
+        runCatching {
+            val response = httpClient.delete("${BuildConfig.API_BASE_URL}/diary-entries/$remoteId")
+            when (response.status) {
+                HttpStatusCode.NoContent, HttpStatusCode.NotFound -> AppResult.Success(Unit)
+                else -> AppResult.Error(response.toDomainError())
+            }
+        }.getOrElse { throwable ->
+            AppResult.Error(throwable.toDomainError())
+        }
+
     private suspend fun executeAuth(
         request: suspend () -> HttpResponse,
     ): AppResult<AuthResponse> = runCatching {
         val response = request()
         when (response.status) {
             HttpStatusCode.OK, HttpStatusCode.Created -> AppResult.Success(response.body<AuthResponse>())
+            else -> AppResult.Error(response.toDomainError())
+        }
+    }.getOrElse { throwable ->
+        AppResult.Error(throwable.toDomainError())
+    }
+
+    private suspend inline fun <reified T> executeRequest(
+        crossinline request: suspend () -> HttpResponse,
+    ): AppResult<T> = runCatching {
+        val response = request()
+        when (response.status) {
+            HttpStatusCode.OK, HttpStatusCode.Created -> AppResult.Success(response.body<T>())
             else -> AppResult.Error(response.toDomainError())
         }
     }.getOrElse { throwable ->

@@ -15,7 +15,9 @@ import androidx.room.TypeConverters
     exportSchema = false,
 )
 @TypeConverters(AppTypeConverters::class)
-abstract class AppDatabase : RoomDatabase()
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun diaryEntryDao(): DiaryEntryDao
+}
 
 class AppTypeConverters {
     @TypeConverter

@@ -11,6 +11,18 @@ import com.bibo.android.features.auth.domain.LogoutUseCase
 import com.bibo.android.features.auth.domain.ObserveCurrentUserUseCase
 import com.bibo.android.features.auth.domain.RegisterUseCase
 import com.bibo.android.features.auth.presentation.AuthViewModel
+import com.bibo.android.features.diary.data.DiaryRepositoryImpl
+import com.bibo.android.features.diary.domain.CalculateDailyMoodUseCase
+import com.bibo.android.features.diary.domain.CreateDiaryEntryUseCase
+import com.bibo.android.features.diary.domain.DeleteDiaryEntryUseCase
+import com.bibo.android.features.diary.domain.DiaryRepository
+import com.bibo.android.features.diary.domain.GetDiaryEntriesUseCase
+import com.bibo.android.features.diary.domain.GetDiaryEntryByIdUseCase
+import com.bibo.android.features.diary.domain.GetJournalItemsUseCase
+import com.bibo.android.features.diary.domain.SyncPendingChangesUseCase
+import com.bibo.android.features.diary.domain.UpdateDiaryEntryUseCase
+import com.bibo.android.features.diary.presentation.DiaryViewModel
+import com.bibo.android.features.journal.presentation.JournalViewModel
 import com.bibo.android.features.main.presentation.ObserveThemeUseCase
 import com.bibo.android.features.main.presentation.RootViewModel
 import com.bibo.android.features.main.presentation.SetDarkThemeUseCase
@@ -35,6 +47,7 @@ private val coreModule = module {
             "bibo.db",
         ).build()
     }
+    single { get<AppDatabase>().diaryEntryDao() }
 }
 
 private val authModule = module {
@@ -49,11 +62,26 @@ private val authModule = module {
 private val mainModule = module {
     factory { ObserveThemeUseCase(get()) }
     factory { SetDarkThemeUseCase(get()) }
-    viewModel { RootViewModel(get(), get(), get(), get()) }
+    viewModel { RootViewModel(get(), get(), get(), get(), get()) }
+}
+
+private val diaryModule = module {
+    single<DiaryRepository> { DiaryRepositoryImpl(get(), get(), get()) }
+    factory { GetDiaryEntriesUseCase(get()) }
+    factory { GetDiaryEntryByIdUseCase(get()) }
+    factory { CreateDiaryEntryUseCase(get()) }
+    factory { UpdateDiaryEntryUseCase(get()) }
+    factory { DeleteDiaryEntryUseCase(get()) }
+    factory { CalculateDailyMoodUseCase() }
+    factory { GetJournalItemsUseCase(get()) }
+    factory { SyncPendingChangesUseCase(get()) }
+    viewModel { DiaryViewModel(get(), get(), get(), get(), get(), get()) }
+    viewModel { JournalViewModel(get(), get(), get()) }
 }
 
 val appModules = listOf(
     coreModule,
     authModule,
     mainModule,
+    diaryModule,
 )

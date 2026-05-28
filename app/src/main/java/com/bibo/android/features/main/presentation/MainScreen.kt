@@ -23,6 +23,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.bibo.android.features.diary.presentation.DiaryScreen
+import com.bibo.android.features.journal.presentation.JournalScreen
 
 private enum class MainTab(val title: String) {
     Meditation("Медитация"),
@@ -88,16 +90,8 @@ fun MainScreen(
                     message = "Раздел медитаций будет реализован в следующей итерации.",
                     email = email,
                 )
-                MainTab.Diary -> PlaceholderTab(
-                    title = "Дневник",
-                    message = "Записи дневника появятся после реализации offline-first ядра.",
-                    email = email,
-                )
-                MainTab.Journal -> PlaceholderTab(
-                    title = "Журнал",
-                    message = "Журнал будет собираться из локальных записей пользователя.",
-                    email = email,
-                )
+                MainTab.Diary -> DiaryScreen()
+                MainTab.Journal -> JournalScreen()
             }
         }
     }
