@@ -26,6 +26,17 @@ import com.bibo.android.features.journal.presentation.JournalViewModel
 import com.bibo.android.features.main.presentation.ObserveThemeUseCase
 import com.bibo.android.features.main.presentation.RootViewModel
 import com.bibo.android.features.main.presentation.SetDarkThemeUseCase
+import com.bibo.android.features.meditation.data.MeditationRepositoryImpl
+import com.bibo.android.features.meditation.domain.CreateMeditationSessionUseCase
+import com.bibo.android.features.meditation.domain.DeleteMeditationSessionUseCase
+import com.bibo.android.features.meditation.domain.FinishMeditationSessionUseCase
+import com.bibo.android.features.meditation.domain.GetMeditationSessionByIdUseCase
+import com.bibo.android.features.meditation.domain.GetMeditationSessionsUseCase
+import com.bibo.android.features.meditation.domain.MeditationRepository
+import com.bibo.android.features.meditation.domain.StartMeditationTimerUseCase
+import com.bibo.android.features.meditation.domain.SyncMeditationPendingChangesUseCase
+import com.bibo.android.features.meditation.domain.UpdateMeditationSessionUseCase
+import com.bibo.android.features.meditation.presentation.MeditationViewModel
 import kotlinx.serialization.json.Json
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
@@ -48,6 +59,7 @@ private val coreModule = module {
         ).build()
     }
     single { get<AppDatabase>().diaryEntryDao() }
+    single { get<AppDatabase>().meditationSessionDao() }
 }
 
 private val authModule = module {
@@ -62,7 +74,7 @@ private val authModule = module {
 private val mainModule = module {
     factory { ObserveThemeUseCase(get()) }
     factory { SetDarkThemeUseCase(get()) }
-    viewModel { RootViewModel(get(), get(), get(), get(), get()) }
+    viewModel { RootViewModel(get(), get(), get(), get(), get(), get()) }
 }
 
 private val diaryModule = module {
@@ -76,7 +88,20 @@ private val diaryModule = module {
     factory { GetJournalItemsUseCase(get()) }
     factory { SyncPendingChangesUseCase(get()) }
     viewModel { DiaryViewModel(get(), get(), get(), get(), get(), get()) }
-    viewModel { JournalViewModel(get(), get(), get()) }
+    viewModel { JournalViewModel(get(), get(), get(), get(), get(), get()) }
+}
+
+private val meditationModule = module {
+    single<MeditationRepository> { MeditationRepositoryImpl(get(), get(), get()) }
+    factory { StartMeditationTimerUseCase() }
+    factory { FinishMeditationSessionUseCase(get()) }
+    factory { GetMeditationSessionsUseCase(get()) }
+    factory { GetMeditationSessionByIdUseCase(get()) }
+    factory { CreateMeditationSessionUseCase(get()) }
+    factory { UpdateMeditationSessionUseCase(get()) }
+    factory { DeleteMeditationSessionUseCase(get()) }
+    factory { SyncMeditationPendingChangesUseCase(get()) }
+    viewModel { MeditationViewModel(get(), get(), get(), get(), get(), androidContext()) }
 }
 
 val appModules = listOf(
@@ -84,4 +109,5 @@ val appModules = listOf(
     authModule,
     mainModule,
     diaryModule,
+    meditationModule,
 )

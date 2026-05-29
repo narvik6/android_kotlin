@@ -17,6 +17,7 @@ import androidx.room.TypeConverters
 @TypeConverters(AppTypeConverters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun diaryEntryDao(): DiaryEntryDao
+    abstract fun meditationSessionDao(): MeditationSessionDao
 }
 
 class AppTypeConverters {

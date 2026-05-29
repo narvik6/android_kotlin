@@ -6,6 +6,7 @@ import com.bibo.android.core.datastore.AuthLocalData
 import com.bibo.android.features.auth.domain.LogoutUseCase
 import com.bibo.android.features.auth.domain.ObserveCurrentUserUseCase
 import com.bibo.android.features.diary.domain.SyncPendingChangesUseCase
+import com.bibo.android.features.meditation.domain.SyncMeditationPendingChangesUseCase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +28,7 @@ class RootViewModel(
     private val setDarkThemeUseCase: SetDarkThemeUseCase,
     private val logoutUseCase: LogoutUseCase,
     private val syncPendingChangesUseCase: SyncPendingChangesUseCase,
+    private val syncMeditationPendingChangesUseCase: SyncMeditationPendingChangesUseCase,
 ) : ViewModel() {
     private val authFlow = observeCurrentUserUseCase()
 
@@ -50,6 +52,7 @@ class RootViewModel(
                     if (authorized) {
                         while (true) {
                             syncPendingChangesUseCase()
+                            syncMeditationPendingChangesUseCase()
                             delay(60_000)
                         }
                     }

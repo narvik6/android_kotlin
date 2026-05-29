@@ -27,6 +27,11 @@ import com.bibo.android.features.diary.presentation.DiaryEntryCard
 import com.bibo.android.features.diary.presentation.UnsyncedMarker
 import com.bibo.android.features.diary.presentation.emoji
 import com.bibo.android.features.diary.presentation.readableDate
+import com.bibo.android.features.journal.domain.JournalItem
+import com.bibo.android.features.meditation.domain.MeditationSession
+import com.bibo.android.features.meditation.presentation.AddEditMeditationSessionScreen
+import com.bibo.android.features.meditation.presentation.MeditationSessionCard
+import com.bibo.android.features.meditation.presentation.formatDuration
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -34,8 +39,9 @@ fun JournalScreen(
     viewModel: JournalViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selected by remember { mutableStateOf<DiaryEntry?>(null) }
+    var selected by remember { mutableStateOf<JournalItem?>(null) }
     var editing by remember { mutableStateOf<DiaryEntry?>(null) }
+    var editingMeditation by remember { mutableStateOf<MeditationSession?>(null) }
 
     editing?.let { entry ->
         AddEditDiaryEntryScreen(
@@ -50,13 +56,40 @@ fun JournalScreen(
         return
     }
 
-    selected?.let { entry ->
+    editingMeditation?.let { session ->
+        AddEditMeditationSessionScreen(
+            session = session,
+            onSave = { note ->
+                viewModel.updateMeditationSession(
+                    localId = session.localId,
+                    startedAt = session.startedAt,
+                    endedAt = session.endedAt,
+                    durationSeconds = session.durationSeconds,
+                    note = note,
+                )
+                editingMeditation = null
+                selected = null
+            },
+            onCancel = { editingMeditation = null },
+        )
+        return
+    }
+
+    selected?.let { item ->
         JournalDetailsScreen(
-            entry = entry,
+            item = item,
             onBack = { selected = null },
-            onEdit = { editing = entry },
+            onEdit = {
+                when (item) {
+                    is JournalItem.Diary -> editing = item.entry
+                    is JournalItem.Meditation -> editingMeditation = item.session
+                }
+            },
             onDelete = {
-                viewModel.deleteDiaryEntry(entry.localId)
+                when (item) {
+                    is JournalItem.Diary -> viewModel.deleteDiaryEntry(item.entry.localId)
+                    is JournalItem.Meditation -> viewModel.deleteMeditationSession(item.session.localId)
+                }
                 selected = null
             },
         )
@@ -79,12 +112,19 @@ fun JournalScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 12.dp),
             ) {
-                items(uiState.items, key = { it.localId }) { entry ->
-                    DiaryEntryCard(
-                        entry = entry,
-                        onClick = { selected = entry },
-                        onDelete = { viewModel.deleteDiaryEntry(entry.localId) },
-                    )
+                items(uiState.items, key = { it.id }) { item ->
+                    when (item) {
+                        is JournalItem.Diary -> DiaryEntryCard(
+                            entry = item.entry,
+                            onClick = { selected = item },
+                            onDelete = { viewModel.deleteDiaryEntry(item.entry.localId) },
+                        )
+                        is JournalItem.Meditation -> MeditationSessionCard(
+                            session = item.session,
+                            onClick = { selected = item },
+                            onDelete = { viewModel.deleteMeditationSession(item.session.localId) },
+                        )
+                    }
                 }
             }
         }
@@ -93,7 +133,7 @@ fun JournalScreen(
 
 @Composable
 fun JournalDetailsScreen(
-    entry: DiaryEntry,
+    item: JournalItem,
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -108,12 +148,21 @@ fun JournalDetailsScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("Запись дневника", style = MaterialTheme.typography.headlineSmall)
-            if (!entry.isSynced) UnsyncedMarker(entry.syncStatus)
+            Text(item.title(), style = MaterialTheme.typography.headlineSmall)
+            item.unsyncedStatus()?.let { UnsyncedMarker(it) }
         }
-        Text("Дата: ${entry.dateTime.readableDate()}")
-        Text("Настроение: ${entry.mood.emoji()}")
-        Text(entry.text ?: "Без текста", style = MaterialTheme.typography.bodyLarge)
+        when (item) {
+            is JournalItem.Diary -> {
+                Text("Дата: ${item.entry.dateTime.readableDate()}")
+                Text("Настроение: ${item.entry.mood.emoji()}")
+                Text(item.entry.text ?: "Без текста", style = MaterialTheme.typography.bodyLarge)
+            }
+            is JournalItem.Meditation -> {
+                Text("Начало: ${item.session.startedAt.readableDate()}")
+                Text("Длительность: ${item.session.durationSeconds.formatDuration()}")
+                Text(item.session.note ?: "Без заметки", style = MaterialTheme.typography.bodyLarge)
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onBack) {
                 Text("Назад")
@@ -126,4 +175,14 @@ fun JournalDetailsScreen(
             }
         }
     }
+}
+
+private fun JournalItem.title(): String = when (this) {
+    is JournalItem.Diary -> "Запись дневника"
+    is JournalItem.Meditation -> "Медитация"
+}
+
+private fun JournalItem.unsyncedStatus() = when (this) {
+    is JournalItem.Diary -> entry.syncStatus.takeUnless { entry.isSynced }
+    is JournalItem.Meditation -> session.syncStatus.takeUnless { session.isSynced }
 }

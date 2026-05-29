@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.bibo.android.features.diary.presentation.DiaryScreen
 import com.bibo.android.features.journal.presentation.JournalScreen
+import com.bibo.android.features.meditation.presentation.MeditationScreen
 
 private enum class MainTab(val title: String) {
     Meditation("Медитация"),
@@ -85,11 +86,7 @@ fun MainScreen(
                 .padding(innerPadding),
         ) {
             when (selectedTab) {
-                MainTab.Meditation -> PlaceholderTab(
-                    title = "Медитация",
-                    message = "Раздел медитаций будет реализован в следующей итерации.",
-                    email = email,
-                )
+                MainTab.Meditation -> MeditationScreen()
                 MainTab.Diary -> DiaryScreen()
                 MainTab.Journal -> JournalScreen()
             }

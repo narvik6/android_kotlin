@@ -106,6 +106,43 @@ class ApiClient(
             AppResult.Error(throwable.toDomainError())
         }
 
+    suspend fun getMeditationSessions(): AppResult<List<MeditationSessionResponse>> =
+        executeRequest {
+            httpClient.get("${BuildConfig.API_BASE_URL}/meditation-sessions")
+        }
+
+    suspend fun createMeditationSession(
+        request: CreateMeditationSessionRequest,
+    ): AppResult<MeditationSessionResponse> =
+        executeRequest {
+            httpClient.post("${BuildConfig.API_BASE_URL}/meditation-sessions") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        }
+
+    suspend fun updateMeditationSession(
+        remoteId: String,
+        request: UpdateMeditationSessionRequest,
+    ): AppResult<MeditationSessionResponse> =
+        executeRequest {
+            httpClient.put("${BuildConfig.API_BASE_URL}/meditation-sessions/$remoteId") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        }
+
+    suspend fun deleteMeditationSession(remoteId: String): AppResult<Unit> =
+        runCatching {
+            val response = httpClient.delete("${BuildConfig.API_BASE_URL}/meditation-sessions/$remoteId")
+            when (response.status) {
+                HttpStatusCode.NoContent, HttpStatusCode.NotFound -> AppResult.Success(Unit)
+                else -> AppResult.Error(response.toDomainError())
+            }
+        }.getOrElse { throwable ->
+            AppResult.Error(throwable.toDomainError())
+        }
+
     private suspend fun executeAuth(
         request: suspend () -> HttpResponse,
     ): AppResult<AuthResponse> = runCatching {
