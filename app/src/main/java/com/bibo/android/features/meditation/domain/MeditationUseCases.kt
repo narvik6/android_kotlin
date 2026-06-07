@@ -59,8 +59,8 @@ class DeleteMeditationSessionUseCase(
     suspend operator fun invoke(localId: String) = repository.deleteSession(localId)
 }
 
-class SyncMeditationPendingChangesUseCase(
+class RefreshMeditationSessionsUseCase(
     private val repository: MeditationRepository,
 ) {
-    suspend operator fun invoke() = repository.syncPendingChanges()
+    suspend operator fun invoke() = repository.refreshFromServer()
 }

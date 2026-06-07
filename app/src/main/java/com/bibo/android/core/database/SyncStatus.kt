@@ -5,5 +5,4 @@ enum class SyncStatus {
     PENDING_CREATE,
     PENDING_UPDATE,
     PENDING_DELETE,
-    ERROR,
 }

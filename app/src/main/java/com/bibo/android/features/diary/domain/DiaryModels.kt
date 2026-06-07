@@ -1,7 +1,5 @@
 package com.bibo.android.features.diary.domain
 
-import com.bibo.android.core.database.SyncStatus
-
 data class DiaryEntry(
     val localId: String,
     val remoteId: String?,
@@ -9,11 +7,15 @@ data class DiaryEntry(
     val text: String?,
     val mood: Int?,
     val dateTime: String,
-    val syncStatus: SyncStatus,
     val createdAt: String,
     val updatedAt: String,
-) {
-    val isSynced: Boolean = syncStatus == SyncStatus.SYNCED
+    val pendingOperation: PendingSyncOperation? = null,
+)
+
+enum class PendingSyncOperation {
+    Create,
+    Update,
+    Delete,
 }
 
 data class DailyMood(

@@ -33,10 +33,10 @@ class DeleteDiaryEntryUseCase(
     suspend operator fun invoke(localId: String) = repository.deleteEntry(localId)
 }
 
-class SyncPendingChangesUseCase(
+class RefreshDiaryEntriesUseCase(
     private val repository: DiaryRepository,
 ) {
-    suspend operator fun invoke() = repository.syncPendingChanges()
+    suspend operator fun invoke() = repository.refreshFromServer()
 }
 
 class GetJournalItemsUseCase(
@@ -58,9 +58,11 @@ class CalculateDailyMoodUseCase {
             average < -0.33 -> ":("
             else -> "._."
         }
+        val previousAverage = moods.dropLast(1).takeIf { it.isNotEmpty() }?.average()
         val trend = when {
-            moods.last() > moods.first() -> MoodTrend.Better
-            moods.last() < moods.first() -> MoodTrend.Worse
+            previousAverage == null -> MoodTrend.Same
+            average > previousAverage -> MoodTrend.Better
+            average < previousAverage -> MoodTrend.Worse
             else -> MoodTrend.Same
         }
         return DailyMood(emoji = emoji, trend = trend)

@@ -2,16 +2,15 @@ package com.bibo.android.features.main.presentation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -24,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.bibo.android.features.diary.presentation.DiaryScreen
+import com.bibo.android.features.diary.presentation.PendingSyncMarker
 import com.bibo.android.features.journal.presentation.JournalScreen
 import com.bibo.android.features.meditation.presentation.MeditationScreen
 
@@ -36,8 +36,9 @@ private enum class MainTab(val title: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    email: String,
+    userScopeKey: String,
     darkThemeEnabled: Boolean,
+    serverAvailable: Boolean,
     onDarkThemeChange: (Boolean) -> Unit,
     onLogout: () -> Unit,
 ) {
@@ -47,7 +48,16 @@ fun MainScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("BIBO")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("BIBO")
+                        if (!serverAvailable) {
+                            PendingSyncMarker()
+                            Text("offline", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
                 },
                 actions = {
                     Row(
@@ -55,10 +65,9 @@ fun MainScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(end = 8.dp),
                     ) {
-                        Text("Тёмная")
-                        Switch(
-                            checked = darkThemeEnabled,
-                            onCheckedChange = onDarkThemeChange,
+                        ThemeToggleButton(
+                            darkThemeEnabled = darkThemeEnabled,
+                            onToggle = { onDarkThemeChange(!darkThemeEnabled) },
                         )
                         TextButton(onClick = onLogout) {
                             Text("Выйти")
@@ -86,42 +95,29 @@ fun MainScreen(
                 .padding(innerPadding),
         ) {
             when (selectedTab) {
-                MainTab.Meditation -> MeditationScreen()
-                MainTab.Diary -> DiaryScreen()
-                MainTab.Journal -> JournalScreen()
+                MainTab.Meditation -> MeditationScreen(
+                    userScopeKey = userScopeKey,
+                )
+                MainTab.Diary -> DiaryScreen(
+                    userScopeKey = userScopeKey,
+                )
+                MainTab.Journal -> JournalScreen(
+                    userScopeKey = userScopeKey,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun PlaceholderTab(
-    title: String,
-    message: String,
-    email: String,
+private fun ThemeToggleButton(
+    darkThemeEnabled: Boolean,
+    onToggle: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.Start,
-    ) {
+    IconButton(onClick = onToggle) {
         Text(
-            text = title,
-            style = MaterialTheme.typography.headlineMedium,
+            text = if (darkThemeEnabled) "☾" else "☀",
+            style = MaterialTheme.typography.titleLarge,
         )
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(top = 12.dp),
-        )
-        if (email.isNotBlank()) {
-            Text(
-                text = "Пользователь: $email",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 24.dp),
-            )
-        }
     }
 }

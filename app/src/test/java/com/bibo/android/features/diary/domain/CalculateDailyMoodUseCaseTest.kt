@@ -1,6 +1,5 @@
 package com.bibo.android.features.diary.domain
 
-import com.bibo.android.core.database.SyncStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -36,6 +35,20 @@ class CalculateDailyMoodUseCaseTest {
     }
 
     @Test
+    fun returnsSameTrendWhenNewMoodDoesNotChangeAverage() {
+        val result = useCase(
+            listOf(
+                entry("2026-06-04T08:00:00Z", -1),
+                entry("2026-06-04T12:00:00Z", 1),
+                entry("2026-06-04T18:00:00Z", 0),
+            ),
+        )
+
+        assertEquals("._.", result?.emoji)
+        assertEquals(MoodTrend.Same, result?.trend)
+    }
+
+    @Test
     fun ignoresEntriesWithoutMood() {
         assertNull(useCase(listOf(entry("2026-06-04T08:00:00Z", null))))
     }
@@ -48,7 +61,6 @@ class CalculateDailyMoodUseCaseTest {
             text = null,
             mood = mood,
             dateTime = dateTime,
-            syncStatus = SyncStatus.SYNCED,
             createdAt = dateTime,
             updatedAt = dateTime,
         )

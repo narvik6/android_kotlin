@@ -6,30 +6,28 @@ package com.bibo.android.features.diary.data
 import com.bibo.android.core.database.DiaryEntryDao
 import com.bibo.android.core.database.DiaryEntryEntity
 import com.bibo.android.core.database.SyncStatus
-import com.bibo.android.core.datastore.UserPreferences
-import com.bibo.android.core.network.ApiClient
+import com.bibo.android.core.datastore.CurrentUserProvider
 import com.bibo.android.core.network.CreateDiaryEntryRequest
-import com.bibo.android.core.network.DiaryEntryResponse
 import com.bibo.android.core.network.UpdateDiaryEntryRequest
-import com.bibo.android.core.util.AppResult
+import com.bibo.android.core.sync.SyncQueue
 import com.bibo.android.features.diary.domain.DiaryEntry
 import com.bibo.android.features.diary.domain.DiaryRepository
+import com.bibo.android.features.diary.domain.PendingSyncOperation
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.first
 import kotlinx.datetime.Instant
 import kotlin.time.Clock
 
 class DiaryRepositoryImpl(
     private val diaryEntryDao: DiaryEntryDao,
-    private val apiClient: ApiClient,
-    private val userPreferences: UserPreferences,
+    private val currentUserProvider: CurrentUserProvider,
+    private val syncQueue: SyncQueue,
 ) : DiaryRepository {
     override fun observeEntries(): Flow<List<DiaryEntry>> =
-        userPreferences.authData.flatMapLatest { auth ->
+        currentUserProvider.authData.flatMapLatest { auth ->
             val ownerUserId = auth.userId
             if (ownerUserId == null) {
                 flowOf(emptyList())
@@ -42,18 +40,32 @@ class DiaryRepositoryImpl(
 
     override fun observeJournalItems(): Flow<List<DiaryEntry>> = observeEntries()
 
-    override suspend fun getEntryById(localId: String): DiaryEntry? =
-        diaryEntryDao.getByLocalId(localId)?.takeUnless { it.deletedLocally }?.toDomain()
+    override suspend fun getEntryById(localId: String): DiaryEntry? {
+        val ownerUserId = currentOwnerUserId() ?: return null
+        return diaryEntryDao.getByLocalId(ownerUserId, localId)
+            ?.takeUnless { it.deletedLocally }
+            ?.takeIf { it.remoteId != null || it.syncStatus != SyncStatus.SYNCED }
+            ?.toDomain()
+    }
 
     override suspend fun createEntry(text: String?, mood: Int?) {
-        val ownerUserId = requireOwnerUserId()
+        val ownerUserId = currentOwnerUserId() ?: return
         val now = nowIso()
+        val localId = UUID.randomUUID().toString()
+        val cleanedText = text.cleaned()
+        val request = CreateDiaryEntryRequest(
+            text = cleanedText,
+            mood = mood,
+            dateTime = Instant.parse(now),
+            createdAt = Instant.parse(now),
+            updatedAt = Instant.parse(now),
+        )
         diaryEntryDao.upsert(
             DiaryEntryEntity(
-                localId = UUID.randomUUID().toString(),
+                localId = localId,
                 remoteId = null,
                 ownerUserId = ownerUserId,
-                text = text.cleaned(),
+                text = cleanedText,
                 mood = mood,
                 dateTime = now,
                 syncStatus = SyncStatus.PENDING_CREATE,
@@ -62,116 +74,47 @@ class DiaryRepositoryImpl(
                 updatedAt = now,
             ),
         )
-        syncPendingChanges()
+        syncQueue.enqueueDiaryCreate(ownerUserId, localId, request)
     }
 
     override suspend fun updateEntry(localId: String, text: String?, mood: Int?) {
-        val existing = diaryEntryDao.getByLocalId(localId) ?: return
-        val nextStatus = DiarySyncPolicy.statusAfterLocalUpdate(existing.syncStatus)
-        diaryEntryDao.update(
-            existing.copy(
-                text = text.cleaned(),
-                mood = mood,
-                syncStatus = nextStatus,
-                updatedAt = nowIso(),
-            ),
+        val ownerUserId = currentOwnerUserId() ?: return
+        val existing = diaryEntryDao.getByLocalId(ownerUserId, localId)
+            ?.takeUnless { it.deletedLocally }
+            ?: return
+        val cleanedText = text.cleaned()
+        if (existing.text == cleanedText && existing.mood == mood) return
+
+        val updatedAt = nowIso()
+        val updated = existing.copy(
+            text = cleanedText,
+            mood = mood,
+            syncStatus = SyncStatus.PENDING_UPDATE,
+            updatedAt = updatedAt,
         )
-        syncPendingChanges()
+        diaryEntryDao.update(updated)
+        syncQueue.enqueueDiaryUpdate(ownerUserId, localId, updated.toUpdateRequest())
     }
 
     override suspend fun deleteEntry(localId: String) {
-        val existing = diaryEntryDao.getByLocalId(localId) ?: return
-        if (existing.remoteId == null && existing.syncStatus == SyncStatus.PENDING_CREATE) {
-            diaryEntryDao.delete(existing)
-            return
-        }
-
+        val ownerUserId = currentOwnerUserId() ?: return
+        val existing = diaryEntryDao.getByLocalId(ownerUserId, localId)
+            ?.takeUnless { it.deletedLocally }
+            ?: return
         diaryEntryDao.update(
             existing.copy(
-                deletedLocally = true,
                 syncStatus = SyncStatus.PENDING_DELETE,
-                updatedAt = nowIso(),
+                deletedLocally = true,
             ),
         )
-        syncPendingChanges()
+        syncQueue.enqueueDiaryDelete(ownerUserId, localId)
     }
 
-    override suspend fun syncPendingChanges() {
-        val ownerUserId = currentOwnerUserId() ?: return
-
-        diaryEntryDao.getPendingEntries(ownerUserId).forEach { entity ->
-            when (entity.syncStatus) {
-                SyncStatus.PENDING_CREATE -> syncCreate(entity)
-                SyncStatus.PENDING_UPDATE -> syncUpdate(entity)
-                SyncStatus.PENDING_DELETE -> syncDelete(entity)
-                SyncStatus.ERROR -> retryError(entity)
-                SyncStatus.SYNCED -> Unit
-            }
-        }
-
-        when (val remoteResult = apiClient.getDiaryEntries()) {
-            is AppResult.Error -> Unit
-            is AppResult.Success -> mergeRemote(ownerUserId, remoteResult.value)
-        }
+    override suspend fun refreshFromServer() {
+        syncQueue.syncCurrentUser()
     }
 
-    private suspend fun syncCreate(entity: DiaryEntryEntity) {
-        val result = apiClient.createDiaryEntry(entity.toCreateRequest())
-        when (result) {
-            is AppResult.Success -> diaryEntryDao.upsert(entity.mergeSynced(result.value))
-            is AppResult.Error -> diaryEntryDao.upsert(entity.copy(syncStatus = SyncStatus.ERROR))
-        }
-    }
-
-    private suspend fun syncUpdate(entity: DiaryEntryEntity) {
-        val remoteId = entity.remoteId ?: return syncCreate(entity.copy(syncStatus = SyncStatus.PENDING_CREATE))
-        val result = apiClient.updateDiaryEntry(remoteId, entity.toUpdateRequest())
-        when (result) {
-            is AppResult.Success -> diaryEntryDao.upsert(entity.mergeSynced(result.value))
-            is AppResult.Error -> diaryEntryDao.upsert(entity.copy(syncStatus = SyncStatus.ERROR))
-        }
-    }
-
-    private suspend fun syncDelete(entity: DiaryEntryEntity) {
-        val remoteId = entity.remoteId
-        if (remoteId == null) {
-            diaryEntryDao.delete(entity)
-            return
-        }
-        when (apiClient.deleteDiaryEntry(remoteId)) {
-            is AppResult.Success -> diaryEntryDao.delete(entity)
-            is AppResult.Error -> diaryEntryDao.upsert(entity.copy(syncStatus = SyncStatus.ERROR))
-        }
-    }
-
-    private suspend fun retryError(entity: DiaryEntryEntity) {
-        val next = entity.copy(
-            syncStatus = DiarySyncPolicy.statusForErrorRetry(
-                deletedLocally = entity.deletedLocally,
-                remoteId = entity.remoteId,
-            ),
-        )
-        diaryEntryDao.upsert(next)
-    }
-
-    private suspend fun mergeRemote(ownerUserId: String, remoteEntries: List<DiaryEntryResponse>) {
-        remoteEntries.forEach { remote ->
-            val existing = diaryEntryDao.getByRemoteId(remote.id)
-            if (existing == null) {
-                diaryEntryDao.upsert(remote.toEntity(ownerUserId))
-                return@forEach
-            }
-            if (existing.syncStatus != SyncStatus.SYNCED) return@forEach
-            if (remote.updatedAt.toString() >= existing.updatedAt) {
-                diaryEntryDao.upsert(remote.toEntity(ownerUserId, existing.localId))
-            }
-        }
-    }
-
-    private suspend fun currentOwnerUserId(): String? = userPreferences.authData.first().userId
-
-    private suspend fun requireOwnerUserId(): String =
-        currentOwnerUserId() ?: error("Diary action requires authorized user")
+    private suspend fun currentOwnerUserId(): String? = currentUserProvider.currentUserId()
 }
 
 private fun DiaryEntryEntity.toDomain(): DiaryEntry =
@@ -182,18 +125,9 @@ private fun DiaryEntryEntity.toDomain(): DiaryEntry =
         text = text,
         mood = mood,
         dateTime = dateTime,
-        syncStatus = syncStatus,
         createdAt = createdAt,
         updatedAt = updatedAt,
-    )
-
-private fun DiaryEntryEntity.toCreateRequest(): CreateDiaryEntryRequest =
-    CreateDiaryEntryRequest(
-        text = text,
-        mood = mood,
-        dateTime = Instant.parse(dateTime),
-        createdAt = Instant.parse(createdAt),
-        updatedAt = Instant.parse(updatedAt),
+        pendingOperation = syncStatus.toPendingOperation(),
     )
 
 private fun DiaryEntryEntity.toUpdateRequest(): UpdateDiaryEntryRequest =
@@ -205,35 +139,13 @@ private fun DiaryEntryEntity.toUpdateRequest(): UpdateDiaryEntryRequest =
         updatedAt = Instant.parse(updatedAt),
     )
 
-private fun DiaryEntryEntity.mergeSynced(remote: DiaryEntryResponse): DiaryEntryEntity =
-    copy(
-        remoteId = remote.id,
-        text = remote.text,
-        mood = remote.mood,
-        dateTime = remote.dateTime.toString(),
-        syncStatus = SyncStatus.SYNCED,
-        deletedLocally = false,
-        createdAt = remote.createdAt.toString(),
-        updatedAt = remote.updatedAt.toString(),
-    )
-
-private fun DiaryEntryResponse.toEntity(
-    ownerUserId: String,
-    localId: String = UUID.randomUUID().toString(),
-): DiaryEntryEntity =
-    DiaryEntryEntity(
-        localId = localId,
-        remoteId = id,
-        ownerUserId = ownerUserId,
-        text = text,
-        mood = mood,
-        dateTime = dateTime.toString(),
-        syncStatus = SyncStatus.SYNCED,
-        deletedLocally = false,
-        createdAt = createdAt.toString(),
-        updatedAt = updatedAt.toString(),
-    )
-
 private fun String?.cleaned(): String? = this?.trim()?.takeIf { it.isNotBlank() }
 
 private fun nowIso(): String = Clock.System.now().toString()
+
+private fun SyncStatus.toPendingOperation(): PendingSyncOperation? = when (this) {
+    SyncStatus.PENDING_CREATE -> PendingSyncOperation.Create
+    SyncStatus.PENDING_UPDATE -> PendingSyncOperation.Update
+    SyncStatus.PENDING_DELETE -> PendingSyncOperation.Delete
+    SyncStatus.SYNCED -> null
+}

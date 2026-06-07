@@ -9,5 +9,5 @@ interface DiaryRepository {
     suspend fun createEntry(text: String?, mood: Int?)
     suspend fun updateEntry(localId: String, text: String?, mood: Int?)
     suspend fun deleteEntry(localId: String)
-    suspend fun syncPendingChanges()
+    suspend fun refreshFromServer()
 }

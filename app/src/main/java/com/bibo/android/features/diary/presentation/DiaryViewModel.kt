@@ -8,7 +8,7 @@ import com.bibo.android.features.diary.domain.DailyMood
 import com.bibo.android.features.diary.domain.DeleteDiaryEntryUseCase
 import com.bibo.android.features.diary.domain.DiaryEntry
 import com.bibo.android.features.diary.domain.GetDiaryEntriesUseCase
-import com.bibo.android.features.diary.domain.SyncPendingChangesUseCase
+import com.bibo.android.features.diary.domain.RefreshDiaryEntriesUseCase
 import com.bibo.android.features.diary.domain.UpdateDiaryEntryUseCase
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,7 +28,7 @@ class DiaryViewModel(
     private val updateDiaryEntryUseCase: UpdateDiaryEntryUseCase,
     private val deleteDiaryEntryUseCase: DeleteDiaryEntryUseCase,
     private val calculateDailyMoodUseCase: CalculateDailyMoodUseCase,
-    private val syncPendingChangesUseCase: SyncPendingChangesUseCase,
+    private val refreshDiaryEntriesUseCase: RefreshDiaryEntriesUseCase,
 ) : ViewModel() {
     val uiState: StateFlow<DiaryUiState> = getDiaryEntriesUseCase()
         .map { entries ->
@@ -46,7 +46,7 @@ class DiaryViewModel(
 
     init {
         viewModelScope.launch {
-            syncPendingChangesUseCase()
+            refreshDiaryEntriesUseCase()
         }
     }
 

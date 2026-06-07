@@ -8,5 +8,5 @@ interface MeditationRepository {
     suspend fun createSession(startedAt: String, endedAt: String, durationSeconds: Long, note: String?)
     suspend fun updateSession(localId: String, startedAt: String, endedAt: String, durationSeconds: Long, note: String?)
     suspend fun deleteSession(localId: String)
-    suspend fun syncPendingChanges()
+    suspend fun refreshFromServer()
 }

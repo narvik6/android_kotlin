@@ -13,27 +13,35 @@ interface MeditationSessionDao {
     @Query(
         """
         SELECT * FROM meditation_sessions
-        WHERE ownerUserId = :ownerUserId AND deletedLocally = 0
+        WHERE ownerUserId = :ownerUserId
+        AND deletedLocally = 0
+        AND (remoteId IS NOT NULL OR syncStatus != 'SYNCED')
         ORDER BY startedAt DESC
         """,
     )
     fun observeActiveSessions(ownerUserId: String): Flow<List<MeditationSessionEntity>>
 
-    @Query("SELECT * FROM meditation_sessions WHERE localId = :localId LIMIT 1")
-    suspend fun getByLocalId(localId: String): MeditationSessionEntity?
+    @Query("SELECT * FROM meditation_sessions WHERE ownerUserId = :ownerUserId AND localId = :localId LIMIT 1")
+    suspend fun getByLocalId(ownerUserId: String, localId: String): MeditationSessionEntity?
 
-    @Query("SELECT * FROM meditation_sessions WHERE remoteId = :remoteId LIMIT 1")
-    suspend fun getByRemoteId(remoteId: String): MeditationSessionEntity?
+    @Query("SELECT * FROM meditation_sessions WHERE ownerUserId = :ownerUserId AND remoteId = :remoteId LIMIT 1")
+    suspend fun getByRemoteId(ownerUserId: String, remoteId: String): MeditationSessionEntity?
 
     @Query(
         """
         SELECT * FROM meditation_sessions
         WHERE ownerUserId = :ownerUserId
-        AND syncStatus IN ('PENDING_CREATE', 'PENDING_UPDATE', 'PENDING_DELETE', 'ERROR')
-        ORDER BY updatedAt ASC
+        AND remoteId IS NOT NULL
+        AND syncStatus = 'SYNCED'
         """,
     )
+    suspend fun getSyncedRemoteSessions(ownerUserId: String): List<MeditationSessionEntity>
+
+    @Query("SELECT * FROM meditation_sessions WHERE ownerUserId = :ownerUserId AND syncStatus != 'SYNCED' ORDER BY updatedAt ASC")
     suspend fun getPendingSessions(ownerUserId: String): List<MeditationSessionEntity>
+
+    @Query("SELECT * FROM meditation_sessions WHERE ownerUserId = :ownerUserId")
+    suspend fun getAllSessions(ownerUserId: String): List<MeditationSessionEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: MeditationSessionEntity)

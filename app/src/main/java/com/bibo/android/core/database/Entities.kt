@@ -50,6 +50,35 @@ data class MeditationSessionEntity(
 )
 
 @Entity(
+    tableName = "sync_operations",
+    indices = [
+        Index("ownerUserId"),
+        Index(value = ["ownerUserId", "entityType", "entityLocalId"]),
+        Index(value = ["ownerUserId", "createdAt"]),
+    ],
+)
+data class SyncOperationEntity(
+    @PrimaryKey val id: String,
+    val ownerUserId: String,
+    val entityType: SyncEntityType,
+    val entityLocalId: String,
+    val operationType: SyncOperationType,
+    val payload: String?,
+    val createdAt: String,
+)
+
+enum class SyncEntityType {
+    DIARY_ENTRY,
+    MEDITATION_SESSION,
+}
+
+enum class SyncOperationType {
+    CREATE,
+    UPDATE,
+    DELETE,
+}
+
+@Entity(
     tableName = "search_history",
     primaryKeys = ["ownerUserId", "query"],
 )

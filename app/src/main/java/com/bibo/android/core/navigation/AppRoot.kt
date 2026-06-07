@@ -3,6 +3,7 @@ package com.bibo.android.core.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.key
 import com.bibo.android.features.auth.presentation.AuthNavHost
 import com.bibo.android.features.main.presentation.MainScreen
 import com.bibo.android.features.main.presentation.RootViewModel
@@ -15,12 +16,16 @@ fun AppRoot(
     val uiState by rootViewModel.uiState.collectAsState()
 
     if (uiState.auth.isAuthorized) {
-        MainScreen(
-            email = uiState.auth.email.orEmpty(),
-            darkThemeEnabled = uiState.darkThemeEnabled,
-            onDarkThemeChange = rootViewModel::setDarkTheme,
-            onLogout = rootViewModel::logout,
-        )
+        val userId = uiState.auth.userId ?: return
+        key(userId) {
+            MainScreen(
+                userScopeKey = userId,
+                darkThemeEnabled = uiState.darkThemeEnabled,
+                serverAvailable = uiState.serverAvailable,
+                onDarkThemeChange = rootViewModel::setDarkTheme,
+                onLogout = rootViewModel::logout,
+            )
+        }
     } else {
         AuthNavHost()
     }

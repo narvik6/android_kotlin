@@ -9,6 +9,7 @@ import androidx.room.TypeConverters
     entities = [
         DiaryEntryEntity::class,
         MeditationSessionEntity::class,
+        SyncOperationEntity::class,
         SearchHistoryEntity::class,
     ],
     version = 1,
@@ -18,6 +19,7 @@ import androidx.room.TypeConverters
 abstract class AppDatabase : RoomDatabase() {
     abstract fun diaryEntryDao(): DiaryEntryDao
     abstract fun meditationSessionDao(): MeditationSessionDao
+    abstract fun syncOperationDao(): SyncOperationDao
 }
 
 class AppTypeConverters {
@@ -25,5 +27,18 @@ class AppTypeConverters {
     fun syncStatusToString(value: SyncStatus): String = value.name
 
     @TypeConverter
-    fun stringToSyncStatus(value: String): SyncStatus = SyncStatus.valueOf(value)
+    fun stringToSyncStatus(value: String): SyncStatus =
+        runCatching { SyncStatus.valueOf(value) }.getOrDefault(SyncStatus.SYNCED)
+
+    @TypeConverter
+    fun syncEntityTypeToString(value: SyncEntityType): String = value.name
+
+    @TypeConverter
+    fun stringToSyncEntityType(value: String): SyncEntityType = SyncEntityType.valueOf(value)
+
+    @TypeConverter
+    fun syncOperationTypeToString(value: SyncOperationType): String = value.name
+
+    @TypeConverter
+    fun stringToSyncOperationType(value: String): SyncOperationType = SyncOperationType.valueOf(value)
 }

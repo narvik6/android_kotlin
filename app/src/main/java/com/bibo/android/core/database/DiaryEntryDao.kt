@@ -13,40 +13,42 @@ interface DiaryEntryDao {
     @Query(
         """
         SELECT * FROM diary_entries
-        WHERE ownerUserId = :ownerUserId AND deletedLocally = 0
+        WHERE ownerUserId = :ownerUserId
+        AND deletedLocally = 0
+        AND (remoteId IS NOT NULL OR syncStatus != 'SYNCED')
         ORDER BY dateTime DESC
         """,
     )
     fun observeActiveEntries(ownerUserId: String): Flow<List<DiaryEntryEntity>>
 
-    @Query("SELECT * FROM diary_entries WHERE localId = :localId LIMIT 1")
-    suspend fun getByLocalId(localId: String): DiaryEntryEntity?
+    @Query("SELECT * FROM diary_entries WHERE ownerUserId = :ownerUserId AND localId = :localId LIMIT 1")
+    suspend fun getByLocalId(ownerUserId: String, localId: String): DiaryEntryEntity?
 
-    @Query("SELECT * FROM diary_entries WHERE remoteId = :remoteId LIMIT 1")
-    suspend fun getByRemoteId(remoteId: String): DiaryEntryEntity?
+    @Query("SELECT * FROM diary_entries WHERE ownerUserId = :ownerUserId AND remoteId = :remoteId LIMIT 1")
+    suspend fun getByRemoteId(ownerUserId: String, remoteId: String): DiaryEntryEntity?
 
     @Query(
         """
         SELECT * FROM diary_entries
         WHERE ownerUserId = :ownerUserId
-        AND syncStatus IN ('PENDING_CREATE', 'PENDING_UPDATE', 'PENDING_DELETE', 'ERROR')
-        ORDER BY updatedAt ASC
+        AND remoteId IS NOT NULL
+        AND syncStatus = 'SYNCED'
         """,
     )
+    suspend fun getSyncedRemoteEntries(ownerUserId: String): List<DiaryEntryEntity>
+
+    @Query("SELECT * FROM diary_entries WHERE ownerUserId = :ownerUserId AND syncStatus != 'SYNCED' ORDER BY updatedAt ASC")
     suspend fun getPendingEntries(ownerUserId: String): List<DiaryEntryEntity>
+
+    @Query("SELECT * FROM diary_entries WHERE ownerUserId = :ownerUserId")
+    suspend fun getAllEntries(ownerUserId: String): List<DiaryEntryEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: DiaryEntryEntity)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertAll(entities: List<DiaryEntryEntity>)
 
     @Update
     suspend fun update(entity: DiaryEntryEntity)
 
     @Delete
     suspend fun delete(entity: DiaryEntryEntity)
-
-    @Query("DELETE FROM diary_entries WHERE localId = :localId")
-    suspend fun deleteByLocalId(localId: String)
 }

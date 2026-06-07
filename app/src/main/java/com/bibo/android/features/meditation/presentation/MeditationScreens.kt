@@ -6,11 +6,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -23,43 +23,39 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.bibo.android.features.diary.presentation.UnsyncedMarker
+import com.bibo.android.features.diary.presentation.PendingSyncMarker
 import com.bibo.android.features.diary.presentation.readableDate
 import com.bibo.android.features.meditation.domain.MeditationSession
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun MeditationScreen(
-    viewModel: MeditationViewModel = koinViewModel(),
+    userScopeKey: String,
+    viewModel: MeditationViewModel = koinViewModel(key = "meditation-$userScopeKey"),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var editing by remember { mutableStateOf<MeditationSession?>(null) }
+    var resetRequested by remember { mutableStateOf(false) }
 
-    editing?.let { session ->
-        AddEditMeditationSessionScreen(
-            session = session,
-            onSave = { note ->
-                viewModel.updateSession(session, note)
-                editing = null
-            },
-            onCancel = { editing = null },
-        )
-        return
-    }
-
-    if (uiState.awaitingConfirmation) {
+    if (resetRequested) {
         AlertDialog(
-            onDismissRequest = viewModel::cancelCompletion,
-            title = { Text("Завершить медитацию?") },
-            text = { Text("Сохранить завершённую практику в журнал.") },
+            onDismissRequest = { resetRequested = false },
+            title = { Text("Сбросить медитацию?") },
+            text = { Text("Текущая практика не будет сохранена.") },
             confirmButton = {
-                Button(onClick = viewModel::confirmCompletion) {
-                    Text("Сохранить")
+                Button(
+                    onClick = {
+                        viewModel.reset()
+                        resetRequested = false
+                    },
+                ) {
+                    Text("Сброс")
                 }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::cancelCompletion) {
+                TextButton(onClick = { resetRequested = false }) {
                     Text("Отмена")
                 }
             },
@@ -73,12 +69,16 @@ fun MeditationScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Медитация", style = MaterialTheme.typography.headlineSmall)
+        if (!uiState.durationInputLoaded) {
+            CircularProgressIndicator()
+            return@Column
+        }
         OutlinedTextField(
-            value = uiState.durationMinutes.toString(),
-            onValueChange = { viewModel.setDurationMinutes(it.toIntOrNull() ?: 1) },
+            value = uiState.durationInput,
+            onValueChange = viewModel::setDurationInput,
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Длительность, минут") },
-            enabled = !uiState.active,
+            enabled = uiState.canEditDuration,
             singleLine = true,
         )
         OutlinedTextField(
@@ -88,38 +88,53 @@ fun MeditationScreen(
             label = { Text("Заметка") },
             minLines = 3,
         )
-        Text(
-            text = if (uiState.active) {
-                "Осталось: ${uiState.remainingSeconds.formatDuration()}"
-            } else {
-                "Таймер не запущен"
-            },
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = viewModel::start, enabled = !uiState.active) {
-                Text("Старт")
-            }
-            OutlinedButton(onClick = viewModel::stop, enabled = uiState.active) {
-                Text("Остановить")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            TimerDot(progress = uiState.progress)
+            Button(
+                onClick = viewModel::confirmCompletion,
+                enabled = uiState.canConfirm,
+            ) {
+                Text("Подтвердить")
             }
         }
-
-        Text("Последние сессии", style = MaterialTheme.typography.titleMedium)
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(uiState.sessions.take(5), key = { it.localId }) { session ->
-                MeditationSessionCard(
-                    session = session,
-                    onClick = { editing = session },
-                )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = viewModel::start, enabled = uiState.canStart) {
+                Text("Старт")
+            }
+            OutlinedButton(onClick = viewModel::pause, enabled = uiState.active) {
+                Text("Пауза")
+            }
+            OutlinedButton(
+                onClick = { resetRequested = true },
+                enabled = uiState.active || uiState.paused || uiState.awaitingConfirmation,
+            ) {
+                Text("Сброс")
             }
         }
     }
 }
 
 @Composable
+private fun TimerDot(
+    progress: Float,
+    size: Dp = 42.dp,
+) {
+    CircularProgressIndicator(
+        progress = { progress.coerceIn(0f, 1f) },
+        modifier = Modifier
+            .padding(top = 2.dp)
+            .size(size),
+        strokeWidth = 3.dp,
+    )
+}
+
+@Composable
 fun AddEditMeditationSessionScreen(
     session: MeditationSession,
+    operationsEnabled: Boolean,
     onSave: (note: String?) -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -141,7 +156,7 @@ fun AddEditMeditationSessionScreen(
             minLines = 4,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onSave(note) }) {
+            Button(onClick = { onSave(note) }, enabled = operationsEnabled) {
                 Text("Сохранить")
             }
             OutlinedButton(onClick = onCancel) {
@@ -156,6 +171,9 @@ fun MeditationSessionCard(
     session: MeditationSession,
     onClick: () -> Unit,
     onDelete: (() -> Unit)? = null,
+    showActions: Boolean = true,
+    operationsEnabled: Boolean = true,
+    contentMaxLines: Int = Int.MAX_VALUE,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -170,12 +188,18 @@ fun MeditationSessionCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(session.startedAt.readableDate(), style = MaterialTheme.typography.titleSmall)
-                if (!session.isSynced) UnsyncedMarker(session.syncStatus)
+                if (session.pendingOperation != null) {
+                    PendingSyncMarker()
+                }
             }
             Text("Длительность: ${session.durationSeconds.formatDuration()}")
-            Text(session.note ?: "Без заметки")
-            onDelete?.let {
-                TextButton(onClick = it) {
+            Text(
+                text = session.note ?: "Без заметки",
+                maxLines = contentMaxLines,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (showActions) onDelete?.let {
+                TextButton(onClick = it, enabled = operationsEnabled) {
                     Text("Удалить")
                 }
             }

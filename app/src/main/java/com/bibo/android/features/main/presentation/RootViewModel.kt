@@ -3,11 +3,10 @@ package com.bibo.android.features.main.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bibo.android.core.datastore.AuthLocalData
+import com.bibo.android.core.network.ServerAvailabilityMonitor
+import com.bibo.android.core.sync.SyncQueue
 import com.bibo.android.features.auth.domain.LogoutUseCase
 import com.bibo.android.features.auth.domain.ObserveCurrentUserUseCase
-import com.bibo.android.features.diary.domain.SyncPendingChangesUseCase
-import com.bibo.android.features.meditation.domain.SyncMeditationPendingChangesUseCase
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -20,6 +19,7 @@ import kotlinx.coroutines.launch
 data class RootUiState(
     val auth: AuthLocalData = AuthLocalData(token = null, userId = null, email = null),
     val darkThemeEnabled: Boolean = false,
+    val serverAvailable: Boolean = false,
 )
 
 class RootViewModel(
@@ -27,16 +27,21 @@ class RootViewModel(
     observeThemeUseCase: ObserveThemeUseCase,
     private val setDarkThemeUseCase: SetDarkThemeUseCase,
     private val logoutUseCase: LogoutUseCase,
-    private val syncPendingChangesUseCase: SyncPendingChangesUseCase,
-    private val syncMeditationPendingChangesUseCase: SyncMeditationPendingChangesUseCase,
+    private val syncAppDataUseCase: SyncAppDataUseCase,
+    private val serverAvailabilityMonitor: ServerAvailabilityMonitor,
 ) : ViewModel() {
     private val authFlow = observeCurrentUserUseCase()
 
     val uiState: StateFlow<RootUiState> = combine(
         authFlow,
         observeThemeUseCase(),
-    ) { auth, theme ->
-        RootUiState(auth = auth, darkThemeEnabled = theme.darkThemeEnabled)
+        serverAvailabilityMonitor.available,
+    ) { auth, theme, serverAvailable ->
+        RootUiState(
+            auth = auth,
+            darkThemeEnabled = theme.darkThemeEnabled,
+            serverAvailable = auth.isAuthorized && serverAvailable,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -46,14 +51,12 @@ class RootViewModel(
     init {
         viewModelScope.launch {
             authFlow
-                .map { it.isAuthorized }
+                .map { auth -> auth.userId?.takeIf { auth.isAuthorized } }
                 .distinctUntilChanged()
-                .collectLatest { authorized ->
-                    if (authorized) {
-                        while (true) {
-                            syncPendingChangesUseCase()
-                            syncMeditationPendingChangesUseCase()
-                            delay(60_000)
+                .collectLatest { userId ->
+                    if (userId != null) {
+                        runCatching {
+                            syncAppDataUseCase()
                         }
                     }
                 }
@@ -71,4 +74,10 @@ class RootViewModel(
             logoutUseCase()
         }
     }
+}
+
+class SyncAppDataUseCase(
+    private val syncQueue: SyncQueue,
+) {
+    suspend operator fun invoke(): Boolean = syncQueue.syncCurrentUser()
 }

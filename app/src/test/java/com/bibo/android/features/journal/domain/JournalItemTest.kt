@@ -1,6 +1,5 @@
 package com.bibo.android.features.journal.domain
 
-import com.bibo.android.core.database.SyncStatus
 import com.bibo.android.features.diary.domain.DiaryEntry
 import com.bibo.android.features.meditation.domain.MeditationSession
 import org.junit.Assert.assertEquals
@@ -26,7 +25,6 @@ class JournalItemTest {
             text = null,
             mood = null,
             dateTime = dateTime,
-            syncStatus = SyncStatus.SYNCED,
             createdAt = dateTime,
             updatedAt = dateTime,
         )
@@ -40,7 +38,6 @@ class JournalItemTest {
             endedAt = "2026-06-04T18:10:00Z",
             durationSeconds = 600,
             note = null,
-            syncStatus = SyncStatus.SYNCED,
             createdAt = startedAt,
             updatedAt = startedAt,
         )
