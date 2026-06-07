@@ -6,6 +6,8 @@ import com.bibo.core.error.UnauthorizedException
 import com.bibo.core.error.ValidationException
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
@@ -82,6 +84,23 @@ class ApplicationTest {
         }
 
         val response = client.get("/diary-entries")
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+        assertEquals(
+            """{"code":"UNAUTHORIZED","message":"Unauthorized"}""",
+            response.body<String>(),
+        )
+    }
+
+    @Test
+    fun `protected endpoints return unauthorized api error with invalid token`() = testApplication {
+        application {
+            module()
+        }
+
+        val response = client.get("/diary-entries") {
+            header(HttpHeaders.Authorization, "Bearer invalid-token")
+        }
 
         assertEquals(HttpStatusCode.Unauthorized, response.status)
         assertEquals(

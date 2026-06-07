@@ -39,7 +39,7 @@ object AppConfigLoader {
 
     private const val DEFAULT_HOST = "localhost"
     private const val DEFAULT_PORT = 8080
-    private const val DEFAULT_JWT_ISSUER = "hunter-diary"
-    private const val DEFAULT_JWT_AUDIENCE = "hunter-diary-api"
+    private const val DEFAULT_JWT_ISSUER = "bibo"
+    private const val DEFAULT_JWT_AUDIENCE = "bibo-api"
     private const val DEFAULT_JWT_TTL_SECONDS = 86_400L
 }

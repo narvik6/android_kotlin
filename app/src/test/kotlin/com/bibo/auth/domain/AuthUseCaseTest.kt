@@ -4,6 +4,7 @@ import com.auth0.jwt.JWT
 import com.bibo.core.config.JwtConfig
 import com.bibo.core.error.ConflictException
 import com.bibo.core.error.UnauthorizedException
+import com.bibo.core.error.ValidationException
 import com.bibo.core.security.JwtService
 import com.bibo.core.security.PasswordHasher
 import kotlinx.coroutines.runBlocking
@@ -54,6 +55,25 @@ class AuthUseCaseTest {
     }
 
     @Test
+    fun `register validates email and password`() = runBlocking {
+        val repository = InMemoryAuthRepository()
+        val useCase = RegisterUseCase(repository, passwordHasher, jwtService)
+
+        assertThrows(ValidationException::class.java) {
+            runBlocking {
+                useCase.execute("not-an-email", "secret-password")
+            }
+        }
+        assertThrows(ValidationException::class.java) {
+            runBlocking {
+                useCase.execute("hunter@test.com", "short")
+            }
+        }
+        assertEquals(0, repository.users.size)
+        Unit
+    }
+
+    @Test
     fun `login returns token for existing user`() = runBlocking {
         val repository = InMemoryAuthRepository()
         val registerUseCase = RegisterUseCase(repository, passwordHasher, jwtService)
@@ -79,6 +99,19 @@ class AuthUseCaseTest {
         assertThrows(UnauthorizedException::class.java) {
             runBlocking {
                 loginUseCase.execute("hunter@test.com", "wrong-password")
+            }
+        }
+        Unit
+    }
+
+    @Test
+    fun `login validates email before checking credentials`() = runBlocking {
+        val repository = InMemoryAuthRepository()
+        val loginUseCase = LoginUseCase(repository, passwordHasher, jwtService)
+
+        assertThrows(ValidationException::class.java) {
+            runBlocking {
+                loginUseCase.execute("not-an-email", "secret-password")
             }
         }
         Unit

@@ -1,4 +1,4 @@
-# Psychology Meditation Ktor Backend
+# BIBO - Breath In, Breath Out
 
 Ktor backend для клиентского приложения по психологии и медитациям.
 
@@ -34,8 +34,6 @@ export FIRESTORE_CREDENTIALS_PATH="/absolute/path/to/firebase-adminsdk-key.json"
 
 ## API
 
-Актуальный контракт находится в [contract/API_CONTRACT.md](contract/API_CONTRACT.md).
-
 Основные endpoints:
 
 - `GET /health`
@@ -63,24 +61,4 @@ export FIRESTORE_CREDENTIALS_PATH="/absolute/path/to/firebase-adminsdk-key.json"
 
 ```bash
 ./gradlew run
-```
-
-### Fat jar
-
-Сборка исполняемого jar со всеми runtime-зависимостями через Ktor Gradle plugin:
-
-```bash
-./gradlew :app:buildFatJar
-```
-
-Файл будет создан здесь:
-
-```text
-app/build/libs/app-all.jar
-```
-
-Запуск:
-
-```bash
-java -jar app/build/libs/app-all.jar
 ```

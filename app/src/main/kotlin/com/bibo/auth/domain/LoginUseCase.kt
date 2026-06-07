@@ -1,7 +1,6 @@
 package com.bibo.auth.domain
 
 import com.bibo.core.error.UnauthorizedException
-import com.bibo.core.error.ValidationException
 import com.bibo.core.security.JwtService
 import com.bibo.core.security.PasswordHasher
 
@@ -25,17 +24,4 @@ class LoginUseCase(
         )
     }
 
-    private fun normalizeAndValidateEmail(email: String): String {
-        val normalized = email.trim().lowercase()
-
-        if (!EMAIL_REGEX.matches(normalized)) {
-            throw ValidationException("Invalid email")
-        }
-
-        return normalized
-    }
-
-    private companion object {
-        val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
-    }
 }
